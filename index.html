@@ -45,35 +45,196 @@
 <script type="text/babel">
 // ─── SAMPLE DATA ──────────────────────────────────────────────────────────────
 const INITIAL_FAMILY = {
-  aria:     {id:"aria",    name:"Aria Hartwell",   gender:"F",birth:"1995",birthplace:"Brooklyn, NY",  occupation:"Architect",         bio:"The center of this lineage. Designs sustainable urban housing.",fatherId:"marcus",motherId:"elena"},
-  // Aria's parents
-  marcus:   {id:"marcus",  name:"Marcus Hartwell", gender:"M",birth:"1968",birthplace:"Boston, MA",    occupation:"Marine Biologist",  bio:"Spent two decades cataloguing reef species in the Caribbean.",fatherId:"samuel",motherId:"rosalind"},
-  elena:    {id:"elena",   name:"Elena Vasquez",   gender:"F",birth:"1970",birthplace:"Madrid, Spain", occupation:"Concert Violinist", bio:"First chair of the Boston Symphony for 12 years.",fatherId:"miguel",motherId:"lucia"},
-  // Siblings of Marcus
-  james:    {id:"james",   name:"James Hartwell",  gender:"M",birth:"1966",birthplace:"Boston, MA",    occupation:"Journalist",        fatherId:"samuel",motherId:"rosalind"},
-  claire:   {id:"claire",  name:"Claire Hartwell", gender:"F",birth:"1971",birthplace:"Boston, MA",    occupation:"Surgeon",           fatherId:"samuel",motherId:"rosalind"},
-  // Siblings of Elena
-  sofia:    {id:"sofia",   name:"Sofia Vasquez",   gender:"F",birth:"1968",birthplace:"Madrid, Spain", occupation:"Chef",              fatherId:"miguel",motherId:"lucia"},
-  david:    {id:"david",   name:"David Vasquez",   gender:"M",birth:"1973",birthplace:"Barcelona, Spain",occupation:"Professor",       fatherId:"miguel",motherId:"lucia"},
-  // Grandparents
-  samuel:   {id:"samuel",  name:"Samuel Hartwell", gender:"M",birth:"1940",death:"2018",birthplace:"Maine, USA",   occupation:"Lighthouse Keeper",fatherId:"edmund",motherId:"beatrice"},
-  rosalind: {id:"rosalind",name:"Rosalind Carter", gender:"F",birth:"1942",birthplace:"Charleston, SC",occupation:"Botanist",         fatherId:"theodore",motherId:"margaret"},
-  miguel:   {id:"miguel",  name:"Miguel Vasquez",  gender:"M",birth:"1944",death:"2010",birthplace:"Seville, Spain",occupation:"Flamenco Guitarist",fatherId:"rafael",motherId:"isabel"},
-  lucia:    {id:"lucia",   name:"Lucia Moreno",    gender:"F",birth:"1945",birthplace:"Granada, Spain",occupation:"Schoolteacher",    fatherId:"joaquin",motherId:"carmen"},
-  // Great-grandparents
-  edmund:   {id:"edmund",  name:"Edmund Hartwell", gender:"M",birth:"1910",death:"1985",occupation:"Shipbuilder",fatherId:"alfred",motherId:"victoria"},
-  beatrice: {id:"beatrice",name:"Beatrice Hayes",  gender:"F",birth:"1912",death:"1990",occupation:"Seamstress",fatherId:"william",motherId:"ada"},
-  theodore: {id:"theodore",name:"Theodore Carter", gender:"M",birth:"1908",death:"1982",occupation:"Farmer"},
-  margaret: {id:"margaret",name:"Margaret O'Neill",gender:"F",birth:"1914",death:"1995",occupation:"Midwife"},
-  rafael:   {id:"rafael",  name:"Rafael Vasquez",  gender:"M",birth:"1916",death:"1988",occupation:"Bullfighter"},
-  isabel:   {id:"isabel",  name:"Isabel Cruz",     gender:"F",birth:"1918",death:"2001",occupation:"Painter"},
-  joaquin:  {id:"joaquin", name:"Joaquin Moreno",  gender:"M",birth:"1915",death:"1979",occupation:"Vintner"},
-  carmen:   {id:"carmen",  name:"Carmen Delgado",  gender:"F",birth:"1920",death:"2008",occupation:"Poet"},
-  // GG grandparents
-  alfred:   {id:"alfred",  name:"Alfred Hartwell", gender:"M",birth:"1882",death:"1955",occupation:"Whaler"},
-  victoria: {id:"victoria",name:"Victoria Pierce", gender:"F",birth:"1885",death:"1960",occupation:"Quilter"},
-  william:  {id:"william", name:"William Hayes",   gender:"M",birth:"1880",death:"1948",occupation:"Blacksmith"},
-  ada:      {id:"ada",     name:"Ada Brennan",     gender:"F",birth:"1884",death:"1962",occupation:"Innkeeper"},
+  // ─── ROOT GENERATION ─────────────────────────
+  george_mc_sr: {
+    id: "george_mc_sr",
+    name: "George McCastle, Sr.",
+    gender: "M"
+  },
+
+  louise_bobo: {
+    id: "louise_bobo",
+    name: "Louise Bobo-McCastle",
+    gender: "F"
+  },
+
+  // ─── CHILDREN OF GEORGE MC SR ────────────────
+  minnie_simms: {
+    id: "minnie_simms",
+    name: "Minnie McCastle-Simms",
+    gender: "F",
+    fatherId: "george_mc_sr"
+  },
+
+  sammie_mc: {
+    id: "sammie_mc",
+    name: "Sammie McCastle",
+    gender: "M",
+    fatherId: "george_mc_sr"
+  },
+
+  henderson_mc: {
+    id: "henderson_mc",
+    name: "Henderson McCastle",
+    gender: "M",
+    fatherId: "george_mc_sr"
+  },
+
+  robert_mc: {
+    id: "robert_mc",
+    name: "Robert McCastle",
+    gender: "M",
+    fatherId: "george_mc_sr"
+  },
+
+  // ─── SIMMS BRANCH ────────────────────────────
+  james_simms: {
+    id: "james_simms",
+    name: "James Simms",
+    gender: "M"
+  },
+
+  ruby_simms: {
+    id: "ruby_simms",
+    name: "Ruby Simms",
+    gender: "F"
+  },
+
+  dillard_simms: {
+    id: "dillard_simms",
+    name: "Dillard Simms",
+    gender: "M"
+  },
+
+  // ─── THURMAN LINE ────────────────────────────
+  thurman_sr: {
+    id: "thurman_sr",
+    name: "Thurman G. McCastle, Sr.",
+    gender: "M"
+  },
+
+  thurman_jr: {
+    id: "thurman_jr",
+    name: "Thurman G. McCastle, Jr.",
+    gender: "M",
+    fatherId: "thurman_sr"
+  },
+
+  thurmsidha: {
+    id: "thurmsidha",
+    name: "Thurmsidha R. McCastle",
+    fatherId: "thurman_sr"
+  },
+
+  theresa_r_mc: {
+    id: "theresa_r_mc",
+    name: "Theresa R. McCastle",
+    gender: "F",
+    fatherId: "thurman_sr"
+  },
+
+  // ─── BURTON BRANCH ───────────────────────────
+  edward_burton: {
+    id: "edward_burton",
+    name: "Edward Burton"
+  },
+
+  ricky_burton_sr: {
+    id: "ricky_burton_sr",
+    name: "Ricky Burton, Sr.",
+    gender: "M",
+    fatherId: "edward_burton"
+  },
+
+  dominick_burton: {
+    id: "dominick_burton",
+    name: "Dominick Burton",
+    fatherId: "ricky_burton_sr"
+  },
+
+  ricky_burton_jr: {
+    id: "ricky_burton_jr",
+    name: "Ricky Burton, Jr.",
+    gender: "M",
+    fatherId: "ricky_burton_sr"
+  },
+
+  india_burton: {
+    id: "india_burton",
+    name: "India Burton",
+    fatherId: "ricky_burton_sr"
+  },
+
+  // ─── JOHNSON BRANCH ──────────────────────────
+  robert_johnson_sr: {
+    id: "robert_johnson_sr",
+    name: "Robert R. Johnson, Sr.",
+    gender: "M"
+  },
+
+  derrick_johnson: {
+    id: "derrick_johnson",
+    name: "Derrick Johnson",
+    fatherId: "robert_johnson_sr"
+  },
+
+  amber_johnson: {
+    id: "amber_johnson",
+    name: "Amber M. Johnson",
+    fatherId: "robert_johnson_sr"
+  },
+
+  robert_johnson_jr: {
+    id: "robert_johnson_jr",
+    name: "Robert R. Johnson, Jr.",
+    gender: "M",
+    fatherId: "robert_johnson_sr"
+  },
+
+  // ─── LEWIS BRANCH ────────────────────────────
+  theoplis_lewis: {
+    id: "theoplis_lewis",
+    name: "Theoplis D. Lewis"
+  },
+
+  felicia_lewis: {
+    id: "felicia_lewis",
+    name: "Felicia L. Lewis",
+    fatherId: "theoplis_lewis"
+  },
+
+  amber_lewis: {
+    id: "amber_lewis",
+    name: "Amber Lewis",
+    fatherId: "theoplis_lewis"
+  },
+
+  dutrica_lewis: {
+    id: "dutrica_lewis",
+    name: "Dutrica Jean Lewis",
+    fatherId: "theoplis_lewis"
+  },
+
+  // ─── WILEY CONNECTION ────────────────────────
+  tammy_mc: {
+    id: "tammy_mc",
+    name: "Tammy D.W. McCastle"
+  },
+
+  kaidrick_wiley: {
+    id: "kaidrick_wiley",
+    name: "Kaidrick Wiley"
+  },
+
+  laconda_wiley: {
+    id: "laconda_wiley",
+    name: "Laconda Wiley"
+  },
+
+  fredrick_wiley: {
+    id: "fredrick_wiley",
+    name: "Fredrick Wiley"
+  }
 };
 const ROOT_ID = "aria";
 
