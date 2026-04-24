@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rootline — Interactive Lineage Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg: hsl(230,30%,7%);
+    --fg: hsl(40,30%,96%);
+    --gen-0: hsl(280,85%,65%); --gen-1: hsl(200,95%,60%);
+    --gen-2: hsl(160,75%,50%); --gen-3: hsl(45,95%,60%);
+    --gen-4: hsl(20,90%,60%);  --gen-5: hsl(340,85%,65%);
+    --maternal: hsl(320,70%,60%); --paternal: hsl(210,80%,60%);
+    --grad-center: linear-gradient(135deg,hsl(280,85%,65%),hsl(200,95%,60%));
+    --grad-bg: radial-gradient(ellipse at top,hsl(260,50%,15%) 0%,hsl(230,35%,6%) 60%,hsl(220,30%,4%) 100%);
+    --card: hsl(230,30%,10%); --border: hsl(230,25%,20%);
+    --muted-fg: hsl(230,15%,65%); --muted: hsl(230,20%,18%);
+    --primary: hsl(280,85%,65%); --primary-fg: hsl(230,30%,7%);
+    --shadow: 0 20px 60px -10px hsl(0,0%,0%,0.6);
+    --radius: 0.75rem;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',sans-serif;color:var(--fg);background:var(--grad-bg);background-attachment:fixed;min-height:100vh;-webkit-font-smoothing:antialiased}
+  .fd{font-family:'Playfair Display',Georgia,serif}
+  .glass{background:hsl(230 30% 10%/0.7);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+  .glow{text-shadow:0 0 24px hsl(280 85% 65%/0.7)}
+  @keyframes pulse{0%,100%{filter:drop-shadow(0 0 14px hsl(280 85% 65%/0.5))}50%{filter:drop-shadow(0 0 32px hsl(280 85% 65%/0.9))}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes scaleIn{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
+  .pulse{animation:pulse 3s ease-in-out infinite}
+  .fadeUp{animation:fadeUp 0.4s ease-out}
+  .scaleIn{animation:scaleIn 0.35s cubic-bezier(0.34,1.56,0.64,1)}
+  ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  input,select,textarea{font-family:'Inter',sans-serif}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+// ─── SAMPLE DATA ──────────────────────────────────────────────────────────────
+const INITIAL_FAMILY = {
+  aria:     {id:"aria",    name:"Aria Hartwell",   gender:"F",birth:"1995",birthplace:"Brooklyn, NY",  occupation:"Architect",         bio:"The center of this lineage. Designs sustainable urban housing.",fatherId:"marcus",motherId:"elena"},
+  // Aria's parents
+  marcus:   {id:"marcus",  name:"Marcus Hartwell", gender:"M",birth:"1968",birthplace:"Boston, MA",    occupation:"Marine Biologist",  bio:"Spent two decades cataloguing reef species in the Caribbean.",fatherId:"samuel",motherId:"rosalind"},
+  elena:    {id:"elena",   name:"Elena Vasquez",   gender:"F",birth:"1970",birthplace:"Madrid, Spain", occupation:"Concert Violinist", bio:"First chair of the Boston Symphony for 12 years.",fatherId:"miguel",motherId:"lucia"},
+  // Siblings of Marcus
+  james:    {id:"james",   name:"James Hartwell",  gender:"M",birth:"1966",birthplace:"Boston, MA",    occupation:"Journalist",        fatherId:"samuel",motherId:"rosalind"},
+  claire:   {id:"claire",  name:"Claire Hartwell", gender:"F",birth:"1971",birthplace:"Boston, MA",    occupation:"Surgeon",           fatherId:"samuel",motherId:"rosalind"},
+  // Siblings of Elena
+  sofia:    {id:"sofia",   name:"Sofia Vasquez",   gender:"F",birth:"1968",birthplace:"Madrid, Spain", occupation:"Chef",              fatherId:"miguel",motherId:"lucia"},
+  david:    {id:"david",   name:"David Vasquez",   gender:"M",birth:"1973",birthplace:"Barcelona, Spain",occupation:"Professor",       fatherId:"miguel",motherId:"lucia"},
+  // Grandparents
+  samuel:   {id:"samuel",  name:"Samuel Hartwell", gender:"M",birth:"1940",death:"2018",birthplace:"Maine, USA",   occupation:"Lighthouse Keeper",fatherId:"edmund",motherId:"beatrice"},
+  rosalind: {id:"rosalind",name:"Rosalind Carter", gender:"F",birth:"1942",birthplace:"Charleston, SC",occupation:"Botanist",         fatherId:"theodore",motherId:"margaret"},
+  miguel:   {id:"miguel",  name:"Miguel Vasquez",  gender:"M",birth:"1944",death:"2010",birthplace:"Seville, Spain",occupation:"Flamenco Guitarist",fatherId:"rafael",motherId:"isabel"},
+  lucia:    {id:"lucia",   name:"Lucia Moreno",    gender:"F",birth:"1945",birthplace:"Granada, Spain",occupation:"Schoolteacher",    fatherId:"joaquin",motherId:"carmen"},
+  // Great-grandparents
+  edmund:   {id:"edmund",  name:"Edmund Hartwell", gender:"M",birth:"1910",death:"1985",occupation:"Shipbuilder",fatherId:"alfred",motherId:"victoria"},
+  beatrice: {id:"beatrice",name:"Beatrice Hayes",  gender:"F",birth:"1912",death:"1990",occupation:"Seamstress",fatherId:"william",motherId:"ada"},
+  theodore: {id:"theodore",name:"Theodore Carter", gender:"M",birth:"1908",death:"1982",occupation:"Farmer"},
+  margaret: {id:"margaret",name:"Margaret O'Neill",gender:"F",birth:"1914",death:"1995",occupation:"Midwife"},
+  rafael:   {id:"rafael",  name:"Rafael Vasquez",  gender:"M",birth:"1916",death:"1988",occupation:"Bullfighter"},
+  isabel:   {id:"isabel",  name:"Isabel Cruz",     gender:"F",birth:"1918",death:"2001",occupation:"Painter"},
+  joaquin:  {id:"joaquin", name:"Joaquin Moreno",  gender:"M",birth:"1915",death:"1979",occupation:"Vintner"},
+  carmen:   {id:"carmen",  name:"Carmen Delgado",  gender:"F",birth:"1920",death:"2008",occupation:"Poet"},
+  // GG grandparents
+  alfred:   {id:"alfred",  name:"Alfred Hartwell", gender:"M",birth:"1882",death:"1955",occupation:"Whaler"},
+  victoria: {id:"victoria",name:"Victoria Pierce", gender:"F",birth:"1885",death:"1960",occupation:"Quilter"},
+  william:  {id:"william", name:"William Hayes",   gender:"M",birth:"1880",death:"1948",occupation:"Blacksmith"},
+  ada:      {id:"ada",     name:"Ada Brennan",     gender:"F",birth:"1884",death:"1962",occupation:"Innkeeper"},
+};
+const ROOT_ID = "aria";
+
+// ─── GEOMETRY ─────────────────────────────────────────────────────────────────
+const SIZE = 900, CX = SIZE / 2, CY = SIZE / 2, CENTER_R = 80, MAX_GEN = 5;
+const RW = 68; // ring width — fixed so CY never changes
+const MAX_WEDGE = 2 * Math.PI / 5; // no single wedge may exceed 1/5 of the full circle
+
+function polar(cx, cy, r, a) { return {x: cx + r*Math.cos(a), y: cy + r*Math.sin(a)}; }
+
+function wedgePath(cx, cy, r0, r1, a0, a1) {
+  const p0=polar(cx,cy,r0,a0), p1=polar(cx,cy,r1,a0), p2=polar(cx,cy,r1,a1), p3=polar(cx,cy,r0,a1);
+  const la = a1-a0 > Math.PI ? 1 : 0;
+  return `M${p0.x} ${p0.y} L${p1.x} ${p1.y} A${r1} ${r1} 0 ${la} 1 ${p2.x} ${p2.y} L${p3.x} ${p3.y} A${r0} ${r0} 0 ${la} 0 ${p0.x} ${p0.y} Z`;
+}
+
+function genColor(gen) {
+  return ["hsl(280,85%,65%)","hsl(200,95%,60%)","hsl(160,75%,50%)","hsl(45,95%,60%)","hsl(20,90%,60%)","hsl(340,85%,65%)"][Math.min(gen,5)];
+}
+
+function getSiblings(pid, family) {
+  const p = family[pid];
+  if (!p || (!p.motherId && !p.fatherId)) return [];
+  return Object.values(family).filter(q =>
+    q.id !== pid &&
+    ((p.motherId && q.motherId === p.motherId) ||
+     (p.fatherId && q.fatherId === p.fatherId))
+  ).sort((a,b) => (parseInt(a.birth)||9999) - (parseInt(b.birth)||9999));
+}
+
+// ─── WHEEL BUILDER ────────────────────────────────────────────────────────────
+// sibAnchorPid: whose siblings to show (independent of card selection)
+function buildWheel(centerId, family, expanded, sibAnchorPid, dominantSibId) {
+  const wedges = [];
+  const showSibs = sibAnchorPid ? new Set([sibAnchorPid]) : new Set();
+
+  function ownLeaves(pid, gen) {
+    if (gen > MAX_GEN || !pid) return 1;
+    const p = family[pid]; if (!p) return 1;
+    if (gen >= 2 && !expanded.has(pid)) return 1;
+    return ownLeaves(p.motherId, gen+1) + ownLeaves(p.fatherId, gen+1);
+  }
+
+  function allocSlots(pid, gen) {
+    const own = ownLeaves(pid, gen);
+    if (!pid || !showSibs.has(pid)) return own;
+    return own + getSiblings(pid, family).length;
+  }
+
+  const cp = family[centerId] || {};
+  const ms0 = allocSlots(cp.motherId, 1);
+  const fs0 = allocSlots(cp.fatherId, 1);
+  const totalRoot = ms0 + fs0;
+
+  // Sweep expands to full circle when siblings push slots > 4.
+  // CY never changes — the container clips/reveals the bottom arc.
+  const fullCircle = totalRoot > 4;
+  const sweep = fullCircle ? 2*Math.PI : Math.PI;
+  const startAngle = Math.PI; // always anchor left edge at PI
+
+  function build(pid, gen, a0, a1) {
+    if (gen < 1 || gen > MAX_GEN) return;
+    const p = pid ? family[pid] : null;
+    const r0 = CENTER_R + (gen-1)*RW, r1 = CENTER_R + gen*RW;
+
+    let group;
+    if (pid && showSibs.has(pid)) {
+      const sibs = getSiblings(pid, family);
+      const all = [...sibs, p].sort((a,b) => (parseInt(a?.birth)||9999)-(parseInt(b?.birth)||9999));
+      group = all.map(m => ({
+        pid: m.id, isSelf: m.id===pid,
+        leaves: m.id===pid ? ownLeaves(pid,gen) : 1,
+      }));
+    } else {
+      group = [{ pid, isSelf: true, leaves: ownLeaves(pid,gen) }];
+    }
+
+    // Guarantee the dominant sibling has strictly more leaves than any other member
+    if (dominantSibId) {
+      const maxOther = group
+        .filter(g => g.pid !== dominantSibId)
+        .reduce((m, g) => Math.max(m, g.leaves), 0);
+      group = group.map(g =>
+        g.pid === dominantSibId
+          ? { ...g, leaves: Math.max(g.leaves, maxOther + 1) }
+          : g
+      );
+    }
+
+    // Scale all widths so the largest wedge = MAX_WEDGE; leftover arc stays empty
+    const totalAngle = a1 - a0;
+    const sumL = group.reduce((s, g) => s + g.leaves, 0);
+    let widths = group.map(g => totalAngle * g.leaves / sumL);
+    const maxW = Math.max(...widths);
+    if (maxW > MAX_WEDGE) {
+      const scale = MAX_WEDGE / maxW;
+      widths = widths.map(w => w * scale);
+    }
+
+    let cursor = a0;
+    let gi = 0;
+
+    for (const g of group) {
+      const gw = widths[gi++];
+      const ga0 = cursor, ga1 = cursor + gw;
+      cursor = ga1;
+      const gp = g.pid ? family[g.pid] : null;
+      const mid = (ga0+ga1)/2;
+      const lp = polar(CX, CY, (r0+r1)/2, mid);
+
+      wedges.push({
+        person: gp, generation: gen,
+        startAngle: ga0, endAngle: ga1,
+        innerRadius: r0, outerRadius: r1,
+        path: wedgePath(CX, CY, r0, r1, ga0, ga1),
+        labelPos: { x: lp.x, y: lp.y },
+        key: g.pid || `empty-${gen}-${ga0.toFixed(2)}`,
+        isSibling: !g.isSelf,
+      });
+
+      if (g.isSelf) {
+        const shouldExpand = gen < 2 || (p && expanded.has(pid));
+        if (shouldExpand) {
+          const ms = allocSlots(p?.motherId, gen+1);
+          const fs = allocSlots(p?.fatherId, gen+1);
+          const tot = ms+fs;
+          if (tot > 0) {
+            const mw = (ga1-ga0)*ms/tot;
+            build(p?.motherId, gen+1, ga0, ga0+mw);
+            build(p?.fatherId, gen+1, ga0+mw, ga1);
+          }
+        }
+      }
+    }
+  }
+
+  const mw = sweep * ms0 / totalRoot;
+  build(cp.motherId, 1, startAngle, startAngle+mw);
+  build(cp.fatherId, 1, startAngle+mw, startAngle+sweep);
+
+  return { wedges, fullCircle };
+}
+
+// ─── ICONS ────────────────────────────────────────────────────────────────────
+const Ic = ({d,size=16}) => <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={d}/></svg>;
+const IcTree    = ()=><Ic size={20} d="M12 22V12M12 12C12 12 7 9 7 5a5 5 0 0 1 10 0c0 4-5 7-5 7zM5 22h14"/>;
+const IcReset   = ()=><svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
+const IcX       = ()=><Ic d="M18 6 6 18M6 6l12 12"/>;
+const IcTarget  = ()=><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>;
+const IcInfo    = ()=><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>;
+const IcUser    = ()=><svg viewBox="0 0 24 24" width={24} height={24} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+const IcPlus    = ()=><Ic d="M12 5v14M5 12h14"/>;
+const IcChevs   = ()=><svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>;
+const IcSibling = ()=><svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3"/><circle cx="15" cy="7" r="3"/><path d="M3 21v-2a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v2"/></svg>;
+
+// ─── LINEAGE WHEEL ────────────────────────────────────────────────────────────
+function LineageWheel({ centerId, family, expanded, selectedPid, sibAnchorPid, onWedgeClick, onWedgeDoubleClick, onCenterClick }) {
+  const [hoverKey, setHoverKey] = React.useState(null);
+  const center = family[centerId];
+  const outerRef = React.useRef(null);
+
+  // When a sibling is individually selected it becomes dominant; otherwise no dominant
+  const dominantSibId = (selectedPid && sibAnchorPid && selectedPid !== sibAnchorPid) ? selectedPid : null;
+
+  // Build wheel — dominant sibling gets extra leaf slots so its wedge is wider
+  const { wedges, fullCircle } = React.useMemo(
+    () => buildWheel(centerId, family, expanded, sibAnchorPid, dominantSibId),
+    [centerId, family, expanded, sibAnchorPid, dominantSibId]
+  );
+
+  // Animate container height: CY is always SIZE/2, container reveals bottom arc
+  // Half: show y=0..CY+CENTER_R+20  Full: show full square
+  React.useEffect(() => {
+    const el = outerRef.current;
+    if (!el) return;
+    function resize() {
+      const w = el.offsetWidth;
+      const halfH = Math.round(w * (CY + CENTER_R + 20) / SIZE); // ~60% of width
+      el.style.height = (fullCircle ? w : halfH) + "px";
+    }
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fullCircle]);
+
+  // Rotation: spin the dominant sibling (if selected) or the anchor to 12 o'clock
+  const rotationTargetKey = dominantSibId || sibAnchorPid;
+  const anchorWedge = rotationTargetKey ? wedges.find(w => w.key === rotationTargetKey) : null;
+  const wheelRotDeg = React.useMemo(() => {
+    if (!anchorWedge) return 0;
+    const mid = (anchorWedge.startAngle + anchorWedge.endAngle) / 2;
+    return 270 - (mid * 180 / Math.PI);
+  }, [anchorWedge]);
+
+  const initials = center?.name.split(" ").map(p=>p[0]).slice(0,2).join("") ?? "?";
+
+  function labelRotation(w, wheelRot) {
+    const mid = (w.startAngle + w.endAngle) / 2;
+    const midDeg = mid * 180 / Math.PI + wheelRot;
+    let deg = midDeg + 90;
+    const n = ((deg%360)+360)%360;
+    if (n > 90 && n < 270) deg -= 180;
+    return deg - wheelRot;
+  }
+
+  return (
+    <div ref={outerRef} style={{
+      position:"relative", width:"100%", maxWidth:900, margin:"0 auto",
+      overflow:"hidden",
+      transition:"height 0.75s cubic-bezier(0.34,1.1,0.64,1)"
+    }}>
+      <div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(circle,hsl(280 90% 65%/0.35) 0%,transparent 70%)",filter:"blur(40px)"}}/>
+      <svg viewBox={`0 0 ${SIZE} ${SIZE}`} style={{width:"100%",display:"block",overflow:"visible"}}>
+        <defs>
+          <linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="hsl(280,85%,65%)"/>
+            <stop offset="100%" stopColor="hsl(200,95%,60%)"/>
+          </linearGradient>
+        </defs>
+
+        {/* Guide rings */}
+        {Array.from({length:MAX_GEN+1}).map((_,i)=>(
+          <circle key={i} cx={CX} cy={CY} r={CENTER_R + i*RW}
+            fill="none" stroke="hsl(230,25%,20%)" strokeWidth={0.5} strokeDasharray="2 6" opacity={0.3}/>
+        ))}
+
+        {/* Wedges */}
+        <g style={{transformOrigin:`${CX}px ${CY}px`,transform:`rotate(${wheelRotDeg}deg)`,transition:"transform 0.7s cubic-bezier(0.34,1.3,0.64,1)"}}>
+          {wedges.map(w => {
+            const isHover    = hoverKey === w.key;
+            const isSelected = selectedPid === w.key;
+            const hasPerson  = !!w.person;
+            const color      = genColor(w.generation);
+            const labelRot   = labelRotation(w, wheelRotDeg);
+
+            return (
+              <g key={w.key}
+                style={{transformOrigin:`${CX}px ${CY}px`,transform:isHover?"scale(1.018)":"scale(1)",transition:"transform 0.25s ease",cursor:"pointer"}}
+                onMouseEnter={()=>setHoverKey(w.key)}
+                onMouseLeave={()=>setHoverKey(null)}
+                onClick={e=>{e.stopPropagation();onWedgeClick(w.person?.id??null, w.isSibling);}}
+                onDoubleClick={e=>{e.stopPropagation();if(w.person)onWedgeDoubleClick(w.person.id);}}
+              >
+                <path d={w.path}
+                  fill={hasPerson ? color : "hsl(230,20%,18%)"}
+                  fillOpacity={hasPerson?(isHover||isSelected?0.95:w.isSibling?0.65:0.78):0.2}
+                  stroke={isSelected?"hsl(280,85%,65%)":"hsl(230,30%,7%)"}
+                  strokeWidth={isSelected?3:w.isSibling?1.5:2}
+                  strokeDasharray={w.isSibling?"6 3":"none"}
+                  style={{filter:isHover||isSelected?`drop-shadow(0 0 12px ${color})`:"none",transition:"all 0.2s ease"}}
+                />
+                {hasPerson && (
+                  <text x={w.labelPos.x} y={w.labelPos.y} textAnchor="middle" dominantBaseline="middle"
+                    fontSize={w.generation<=1?15:w.generation<=2?12:10} fontWeight={w.isSibling?400:600}
+                    fill={w.isSibling?"hsl(40,30%,80%)":"hsl(40,30%,96%)"}
+                    transform={`rotate(${labelRot} ${w.labelPos.x} ${w.labelPos.y})`}
+                    style={{pointerEvents:"none",fontFamily:"Inter,sans-serif",textShadow:"0 1px 2px hsl(230 30% 7%/0.9)"}}
+                  >
+                    <tspan x={w.labelPos.x} dy="-0.3em">{w.person.name.split(" ")[0]}</tspan>
+                    <tspan x={w.labelPos.x} dy="1.1em" fontSize={w.generation<=2?9:8} fontWeight={400} opacity={0.85}>{w.person.name.split(" ").slice(1).join(" ")}</tspan>
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </g>
+
+        {/* Center */}
+        <g style={{cursor:"pointer"}} onClick={e=>{e.stopPropagation();onCenterClick();}}>
+          <circle cx={CX} cy={CY} r={CENTER_R} fill="url(#cg)" className="pulse"/>
+          <circle cx={CX} cy={CY} r={CENTER_R-6} fill="hsl(230,30%,7%)" opacity={0.12}/>
+          <text x={CX} y={CY-9} textAnchor="middle" dominantBaseline="middle"
+            fontSize={28} fontWeight={700} fill="hsl(230,30%,7%)"
+            style={{fontFamily:"'Playfair Display',serif"}}>{initials}</text>
+          <text x={CX} y={CY+22} textAnchor="middle" fontSize={11} fill="hsl(230,30%,7%)" opacity={0.85}
+            style={{fontFamily:"Inter,sans-serif",fontWeight:500}}>{center?.name??""}</text>
+        </g>
+      </svg>
+
+      {/* Line labels */}
+      <div style={{position:"absolute",top:8,left:16,display:"flex",alignItems:"center",gap:6,fontSize:11,fontWeight:500,color:"var(--muted-fg)"}}>
+        <span style={{width:7,height:7,borderRadius:"50%",background:"var(--maternal)",display:"inline-block"}}/>
+        Maternal
+      </div>
+      <div style={{position:"absolute",top:8,right:16,display:"flex",alignItems:"center",gap:6,fontSize:11,fontWeight:500,color:"var(--muted-fg)"}}>
+        Paternal
+        <span style={{width:7,height:7,borderRadius:"50%",background:"var(--paternal)",display:"inline-block"}}/>
+      </div>
+
+      {/* Sibling hint */}
+      {sibAnchorPid && sibAnchorPid !== centerId && (
+        <div className="scaleIn" style={{position:"absolute",bottom:8,left:"50%",transform:"translateX(-50%)",fontSize:11,color:"var(--muted-fg)",display:"flex",alignItems:"center",gap:5,whiteSpace:"nowrap"}}>
+          <span style={{width:24,borderTop:"1px dashed hsl(280,85%,65%,0.5)"}}/>
+          Siblings shown with dashed border · click again to hide
+          <span style={{width:24,borderTop:"1px dashed hsl(280,85%,65%,0.5)"}}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── LEGEND ───────────────────────────────────────────────────────────────────
+function Legend() {
+  const gens = [{i:0,l:"Self"},{i:1,l:"Parents"},{i:2,l:"Grandparents"},{i:3,l:"Great-grandparents"},{i:4,l:"2× Great"},{i:5,l:"3× Great"}];
+  return (
+    <div className="glass" style={{border:"1px solid var(--border)",borderRadius:16,padding:16,fontSize:12}}>
+      <p className="fd" style={{fontSize:14,marginBottom:12,display:"flex",alignItems:"center",gap:8}}><IcChevs/> Generations</p>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {gens.map(g=>(
+          <div key={g.i} style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{width:12,height:12,borderRadius:3,background:genColor(g.i),flexShrink:0}}/>
+            <span style={{color:"var(--muted-fg)"}}>{g.l}</span>
+          </div>
+        ))}
+        <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,paddingTop:8,borderTop:"1px solid var(--border)"}}>
+          <span style={{width:20,height:10,borderRadius:2,background:"hsl(200,95%,60%,0.5)",border:"1px dashed hsl(200,95%,60%)",flexShrink:0}}/>
+          <span style={{color:"var(--muted-fg)"}}>Sibling (not direct ancestor)</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── PERSON CARD ──────────────────────────────────────────────────────────────
+function PersonCard({ person, isCenter, family, onRecenter, onClose, onAddPerson }) {
+  const cs = {border:"1px solid var(--border)",borderRadius:16,padding:24,boxShadow:"var(--shadow)"};
+
+  if (!person) return (
+    <div className="glass scaleIn" style={cs}>
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:48,height:48,borderRadius:"50%",background:"var(--muted)",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--muted-fg)"}}><IcUser/></div>
+          <div><h3 className="fd" style={{fontSize:20}}>Unknown Ancestor</h3><p style={{fontSize:13,color:"var(--muted-fg)"}}>No records found</p></div>
+        </div>
+        <Btn variant="ghost" onClick={onClose}><IcX/></Btn>
+      </div>
+      <p style={{fontSize:13,color:"var(--muted-fg)",fontStyle:"italic"}}>The threads of this lineage are lost to time.</p>
+    </div>
+  );
+
+  const initials = person.name.split(" ").map(p=>p[0]).slice(0,2).join("");
+  const grad = `linear-gradient(135deg,${person.gender==="F"?"hsl(320,70%,60%)":"hsl(210,80%,60%)"},hsl(280,85%,65%))`;
+  const sibs = getSiblings(person.id, family);
+  const hasMother = !!person.motherId, hasFather = !!person.fatherId;
+
+  return (
+    <div className="glass scaleIn" style={cs}>
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:54,height:54,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:600,color:"hsl(230,30%,7%)",background:grad}}>{initials}</div>
+          <div>
+            <h3 className="fd" style={{fontSize:21,lineHeight:1.2}}>{person.name}</h3>
+            <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
+              <Tag>{person.gender==="F"?"♀ Female":"♂ Male"}</Tag>
+              {(person.birth||person.death) && <Tag outline>{person.birth??"?"}–{person.death??"present"}</Tag>}
+            </div>
+          </div>
+        </div>
+        <Btn variant="ghost" onClick={onClose}><IcX/></Btn>
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:person.bio?16:12,fontSize:13}}>
+        {person.birthplace && <Row label="Birthplace" value={person.birthplace}/>}
+        {person.occupation && <Row label="Occupation" value={person.occupation}/>}
+        {sibs.length > 0 && <Row label={`Known siblings`} value={sibs.map(s=>s.name.split(" ")[0]).join(", ")}/>}
+      </div>
+
+      {person.bio && (
+        <p style={{fontSize:13,color:"var(--muted-fg)",fontStyle:"italic",marginBottom:16,lineHeight:1.6,borderLeft:"2px solid hsl(280,85%,65%,0.4)",paddingLeft:12}}>{person.bio}</p>
+      )}
+
+      {/* Actions */}
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {!isCenter && (
+          <Btn full gradient onClick={()=>onRecenter(person.id)}>
+            <IcTarget/> Center wheel on {person.name.split(" ")[0]}
+          </Btn>
+        )}
+        {isCenter && <p style={{fontSize:12,textAlign:"center",color:"var(--muted-fg)"}}>✨ Currently the center of the lineage</p>}
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginTop:4}}>
+          <Btn variant="outline" onClick={()=>onAddPerson(person.id,"sibling")}>
+            <IcSibling/> Add Sibling
+          </Btn>
+          <Btn variant="outline" onClick={()=>onAddPerson(person.id,"parent")}>
+            <IcPlus/> Add Parent
+          </Btn>
+          {!hasMother && (
+            <Btn variant="ghost-sm" onClick={()=>onAddPerson(person.id,"mother")}>+ Add Mother</Btn>
+          )}
+          {!hasFather && (
+            <Btn variant="ghost-sm" onClick={()=>onAddPerson(person.id,"father")}>+ Add Father</Btn>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ADD PERSON MODAL ─────────────────────────────────────────────────────────
+function AddPersonModal({ context, family, onSubmit, onClose }) {
+  const { personId, type } = context;
+  const target = family[personId];
+  const [form, setForm] = React.useState({
+    name:"", gender: type==="father"?"M":"F",
+    birth:"", death:"", birthplace:"", occupation:""
+  });
+  const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+
+  const typeLabel = type==="sibling"?"Sibling of":type==="mother"?"Mother of":type==="father"?"Father of":"Parent of";
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    const id = "p_" + Date.now();
+    onSubmit(id, form, context);
+    onClose();
+  }
+
+  const overlay = {position:"fixed",inset:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",background:"hsl(230 30% 4%/0.7)",backdropFilter:"blur(6px)"};
+  const modal = {background:"hsl(230,30%,9%)",border:"1px solid var(--border)",borderRadius:20,padding:28,width:380,boxShadow:"0 32px 80px -8px hsl(0,0%,0%,0.7)"};
+  const inp = {width:"100%",background:"hsl(230,25%,13%)",border:"1px solid var(--border)",borderRadius:8,padding:"9px 12px",color:"var(--fg)",fontSize:13,outline:"none"};
+  const label = {fontSize:12,fontWeight:500,color:"var(--muted-fg)",marginBottom:4,display:"block"};
+
+  return (
+    <div style={overlay} onClick={onClose}>
+      <div style={modal} onClick={e=>e.stopPropagation()} className="scaleIn">
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+          <div>
+            <h2 className="fd" style={{fontSize:20,lineHeight:1}}>Add Family Member</h2>
+            <p style={{fontSize:12,color:"var(--muted-fg)",marginTop:4}}>{typeLabel} <span style={{color:"var(--primary)"}}>{target?.name}</span></p>
+          </div>
+          <Btn variant="ghost" onClick={onClose}><IcX/></Btn>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <div>
+              <label style={label}>Full Name *</label>
+              <input style={inp} value={form.name} onChange={set("name")} placeholder="e.g. Margaret Smith" required autoFocus/>
+            </div>
+
+            <div>
+              <label style={label}>Gender</label>
+              <div style={{display:"flex",gap:8}}>
+                {["F","M"].map(g=>(
+                  <label key={g} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,padding:"8px 14px",borderRadius:8,border:`1px solid ${form.gender===g?"var(--primary)":"var(--border)"}`,background:form.gender===g?"hsl(280,85%,65%,0.12)":"transparent",flex:1,justifyContent:"center"}}>
+                    <input type="radio" name="gender" value={g} checked={form.gender===g} onChange={set("gender")} style={{display:"none"}}/>
+                    {g==="F"?"♀ Female":"♂ Male"}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div>
+                <label style={label}>Birth Year</label>
+                <input style={inp} value={form.birth} onChange={set("birth")} placeholder="e.g. 1942" maxLength={4}/>
+              </div>
+              <div>
+                <label style={label}>Death Year</label>
+                <input style={inp} value={form.death} onChange={set("death")} placeholder="if deceased" maxLength={4}/>
+              </div>
+            </div>
+
+            <div>
+              <label style={label}>Birthplace</label>
+              <input style={inp} value={form.birthplace} onChange={set("birthplace")} placeholder="City, Country"/>
+            </div>
+
+            <div>
+              <label style={label}>Occupation</label>
+              <input style={inp} value={form.occupation} onChange={set("occupation")} placeholder="e.g. Farmer, Weaver…"/>
+            </div>
+
+            <div style={{display:"flex",gap:8,marginTop:4}}>
+              <Btn variant="outline" full onClick={onClose}>Cancel</Btn>
+              <Btn gradient full type="submit">Add to Lineage</Btn>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── SHARED UI ATOMS ─────────────────────────────────────────────────────────
+function Btn({variant="default",full,gradient,onClick,children,type="button"}) {
+  const base = {display:"flex",alignItems:"center",justifyContent:"center",gap:6,border:"none",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:500,borderRadius:8,transition:"all 0.15s",padding:"8px 14px",fontSize:13,width:full?"100%":"auto"};
+  const vars = {
+    default:   {...base,background:"hsl(230,25%,16%)",color:"var(--fg)"},
+    gradient:  {...base,background:"var(--grad-center)",color:"hsl(230,30%,7%)",fontWeight:600},
+    outline:   {...base,background:"transparent",border:"1px solid var(--border)",color:"var(--fg)"},
+    ghost:     {...base,background:"transparent",color:"var(--muted-fg)",padding:"6px"},
+    "ghost-sm":{...base,background:"transparent",color:"var(--muted-fg)",padding:"6px 10px",fontSize:12},
+  };
+  const s = gradient ? vars.gradient : (vars[variant]||vars.default);
+  return <button style={s} onClick={onClick} type={type}>{children}</button>;
+}
+
+function Tag({outline,children}) {
+  return <span style={{background:outline?"transparent":"hsl(230,25%,15%)",border:outline?"1px solid var(--border)":"none",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:500,display:"inline-block"}}>{children}</span>;
+}
+function Row({label,value}) {
+  return <div style={{display:"flex",justifyContent:"space-between",gap:16,flexWrap:"wrap"}}><span style={{color:"var(--muted-fg)"}}>{label}</span><span style={{fontWeight:500,textAlign:"right",wordBreak:"break-word"}}>{value}</span></div>;
+}
+
+// ─── INFO PANEL ───────────────────────────────────────────────────────────────
+function InfoPanel() {
+  return (
+    <div className="glass" style={{border:"1px solid var(--border)",borderRadius:16,padding:24,boxShadow:"var(--shadow)"}}>
+      <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:12}}>
+        <div style={{width:36,height:36,borderRadius:10,background:"hsl(280 85% 65%/0.15)",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--primary)",flexShrink:0}}><IcInfo/></div>
+        <div>
+          <h3 className="fd" style={{fontSize:18,lineHeight:1.2}}>Explore the wheel</h3>
+          <p style={{fontSize:12,color:"var(--muted-fg)"}}>A few ways to navigate</p>
+        </div>
+      </div>
+      <ul style={{fontSize:13,display:"flex",flexDirection:"column",gap:10,color:"var(--muted-fg)",listStyle:"none"}}>
+        {[
+          ["→","Click any wedge to select and reveal siblings in the same ring"],
+          ["→","Double-click to make that ancestor the new center"],
+          ["→","Dashed-border wedges are siblings (not direct ancestors)"],
+          ["→","Use the person card to add parents or siblings"],
+          ["→","Wheel auto-expands to full circle when needed"],
+        ].map(([a,b],i)=>(
+          <li key={i} style={{display:"flex",gap:8}}><span style={{color:"var(--primary)",flexShrink:0}}>{a}</span>{b}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ─── APP ──────────────────────────────────────────────────────────────────────
+function App() {
+  const saved = React.useMemo(() => {
+    try { return JSON.parse(localStorage.getItem("lineage-v2")||"{}"); } catch { return {}; }
+  }, []);
+
+  const [family,      setFamily]      = React.useState(()=>({...INITIAL_FAMILY}));
+  const [centerId,    setCenterId]    = React.useState(saved.centerId ?? ROOT_ID);
+  const [expanded,    setExpanded]    = React.useState(()=>new Set(saved.expanded??[]));
+  const [selectedPid, setSelectedPid] = React.useState(null); // drives person card
+  const [sibAnchorPid,setSibAnchorPid]= React.useState(null); // drives sibling fan in wheel
+  const [addCtx,      setAddCtx]      = React.useState(null);
+
+  React.useEffect(()=>{
+    localStorage.setItem("lineage-v2", JSON.stringify({centerId, expanded:[...expanded]}));
+  }, [centerId, expanded]);
+
+  const center = family[centerId];
+  const selectedPerson = selectedPid ? family[selectedPid] : null;
+
+  function handleWedgeClick(personId, isSibling) {
+    if (!personId) return;
+    if (isSibling) {
+      setSelectedPid(prev => prev === personId ? sibAnchorPid : personId);
+    } else {
+      if (sibAnchorPid === personId) {
+        if (selectedPid === personId) {
+          // Already selected and centered — collapse expanded ancestors in this line,
+          // wheel stays in place (sibAnchorPid / selectedPid unchanged)
+          setExpanded(prev => {
+            const n = new Set(prev);
+            const collapse = (pid) => {
+              if (!pid) return;
+              n.delete(pid);
+              const p = family[pid];
+              if (p) { collapse(p.motherId); collapse(p.fatherId); }
+            };
+            collapse(personId);
+            return n;
+          });
+        } else {
+          // Sibling was dominant — re-click anchor rotates it back to center, fan stays open
+          setSelectedPid(personId);
+        }
+      } else {
+        setSelectedPid(personId);
+        setSibAnchorPid(personId);
+        setExpanded(prev => { const n=new Set(prev); n.add(personId); return n; });
+      }
+    }
+  }
+
+  function handleRecenter(id) {
+    setCenterId(id);
+    setExpanded(new Set());
+    setSelectedPid(null);
+    setSibAnchorPid(null);
+  }
+
+  function handleReset() {
+    setCenterId(ROOT_ID);
+    setExpanded(new Set());
+    setSelectedPid(null);
+    setSibAnchorPid(null);
+    setFamily({...INITIAL_FAMILY});
+  }
+
+  function handleAddPerson(newId, formData, ctx) {
+    const { personId, type } = ctx;
+    const target = family[personId];
+
+    const newPerson = {
+      id: newId,
+      name: formData.name.trim(),
+      gender: formData.gender,
+      ...(formData.birth      && {birth: formData.birth}),
+      ...(formData.death      && {death: formData.death}),
+      ...(formData.birthplace && {birthplace: formData.birthplace}),
+      ...(formData.occupation && {occupation: formData.occupation}),
+    };
+
+    setFamily(prev => {
+      const next = {...prev};
+
+      if (type === "sibling") {
+        newPerson.motherId = target?.motherId;
+        newPerson.fatherId = target?.fatherId;
+        next[newId] = newPerson;
+      } else if (type === "mother" || (type==="parent" && formData.gender==="F")) {
+        newPerson.gender = "F";
+        next[newId] = newPerson;
+        next[personId] = {...next[personId], motherId: newId};
+      } else if (type === "father" || (type==="parent" && formData.gender==="M")) {
+        newPerson.gender = "M";
+        next[newId] = newPerson;
+        next[personId] = {...next[personId], fatherId: newId};
+      } else {
+        // generic parent — use gender to determine
+        next[newId] = newPerson;
+        if (formData.gender === "F") next[personId] = {...next[personId], motherId: newId};
+        else next[personId] = {...next[personId], fatherId: newId};
+      }
+      return next;
+    });
+  }
+
+  const stats = React.useMemo(()=>({
+    total: Object.keys(family).length,
+    expanded: expanded.size,
+  }), [family, expanded]);
+
+  return (
+    <div style={{minHeight:"100vh"}}>
+      {/* Header */}
+      <header className="glass" style={{borderBottom:"1px solid hsl(230,25%,20%,0.4)",position:"sticky",top:0,zIndex:30}}>
+        <div style={{maxWidth:1400,margin:"0 auto",padding:"14px 32px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{width:40,height:40,borderRadius:12,background:"var(--grad-center)",display:"flex",alignItems:"center",justifyContent:"center",color:"hsl(230,30%,7%)"}}><IcTree/></div>
+            <div>
+              <h1 className="fd" style={{fontSize:20,lineHeight:1}}>Rootline</h1>
+              <p style={{fontSize:11,color:"var(--muted-fg)"}}>Interactive lineage atlas</p>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <span style={{fontSize:12,color:"var(--muted-fg)"}}>{stats.total} ancestors</span>
+            <Btn onClick={handleReset}><IcReset/> Reset</Btn>
+          </div>
+        </div>
+      </header>
+
+      {/* Main */}
+      <div style={{maxWidth:1400,margin:"0 auto",padding:"28px 32px",display:"grid",gridTemplateColumns:"1fr 360px",gap:32,alignItems:"start"}}>
+        <section style={{display:"flex",flexDirection:"column",gap:16}}>
+          <div className="fadeUp" style={{textAlign:"center",maxWidth:600,margin:"0 auto"}}>
+            <h2 className="fd glow" style={{fontSize:34,marginBottom:8}}>
+              The Lineage of <span style={{color:"var(--primary)"}}>{center?.name}</span>
+            </h2>
+            <p style={{fontSize:13,color:"var(--muted-fg)"}}>
+              Click any wedge to select and reveal siblings · Double-click to recenter
+            </p>
+          </div>
+
+          <div className="glass" style={{borderRadius:24,border:"1px solid hsl(230,25%,20%,0.6)",padding:24,boxShadow:"var(--shadow)"}}>
+            <LineageWheel
+              centerId={centerId}
+              family={family}
+              expanded={expanded}
+              selectedPid={selectedPid}
+              sibAnchorPid={sibAnchorPid}
+              onWedgeClick={handleWedgeClick}
+              onWedgeDoubleClick={handleRecenter}
+              onCenterClick={()=>{ setSelectedPid(centerId); setSibAnchorPid(null); }}
+            />
+          </div>
+
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:20,fontSize:12,color:"var(--muted-fg)"}}>
+            <span>{stats.total} ancestors in archive</span>
+            <span>•</span>
+            <span>{stats.expanded} branches expanded</span>
+          </div>
+        </section>
+
+        {/* Sidebar */}
+        <aside style={{display:"flex",flexDirection:"column",gap:14,position:"sticky",top:82}}>
+          {(selectedPerson || selectedPid === centerId) ? (
+            <PersonCard
+              person={selectedPid === centerId ? center : selectedPerson}
+              isCenter={selectedPid === centerId}
+              family={family}
+              onRecenter={handleRecenter}
+              onClose={()=>{ setSelectedPid(null); setSibAnchorPid(null); }}
+              onAddPerson={(pid,type)=>setAddCtx({personId:pid,type})}
+            />
+          ) : (
+            <InfoPanel/>
+          )}
+          <Legend/>
+        </aside>
+      </div>
+
+      <footer style={{maxWidth:1400,margin:"0 auto",padding:"32px 32px",textAlign:"center",fontSize:12,color:"var(--muted-fg)"}}>
+        Rootline · Sample lineage of the Hartwell-Vasquez family
+      </footer>
+
+      {addCtx && (
+        <AddPersonModal
+          context={addCtx}
+          family={family}
+          onSubmit={handleAddPerson}
+          onClose={()=>setAddCtx(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
