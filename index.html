@@ -1691,6 +1691,7 @@
         person,
         isCenter,
         family,
+        viewDirection,
         onRecenter,
         onClose,
         onAddPerson,
@@ -1763,6 +1764,7 @@
         const spouses = getSpouses(person.id, family);
         const hasMother = !!person.motherId,
           hasFather = !!person.fatherId;
+        const isAncestorView = viewDirection === "ancestors";
 
         return (
           <div className="glass scaleIn" style={cs}>
@@ -1897,34 +1899,34 @@
                 >
                   <IcSibling /> Add Sibling
                 </Btn>
-                {!(hasMother && hasFather) && (
-                  <Btn
-                    variant="outline"
-                    onClick={() => onAddPerson(person.id, "parent")}
-                  >
-                    <IcPlus /> Add Parent
-                  </Btn>
-                )}
                 <Btn
                   variant="outline"
                   onClick={() => onAddPerson(person.id, "spouse")}
                 >
                   <IcPlus /> Add Spouse
                 </Btn>
-                {!hasMother && (
+                {!isAncestorView && (
                   <Btn
-                    variant="ghost-sm"
-                    onClick={() => onAddPerson(person.id, "mother")}
+                    variant="outline"
+                    onClick={() => onAddPerson(person.id, "child")}
                   >
-                    + Add Mother
+                    <IcPlus /> Add Child
                   </Btn>
                 )}
-                {!hasFather && (
+                {isAncestorView && !hasMother && (
                   <Btn
-                    variant="ghost-sm"
+                    variant="outline"
+                    onClick={() => onAddPerson(person.id, "mother")}
+                  >
+                    ♀ Add Mother
+                  </Btn>
+                )}
+                {isAncestorView && !hasFather && (
+                  <Btn
+                    variant="outline"
                     onClick={() => onAddPerson(person.id, "father")}
                   >
-                    + Add Father
+                    ♂ Add Father
                   </Btn>
                 )}
               </div>
@@ -1956,6 +1958,8 @@
             ? "Sibling of"
             : type === "spouse"
               ? "Spouse of"
+            : type === "child"
+              ? "Child of"
             : type === "mother"
               ? "Mother of"
               : type === "father"
@@ -2531,6 +2535,10 @@
                 spouseIds: [...existing],
                 spouseId: undefined,
               };
+            } else if (type === "child") {
+              if (target?.gender === "M") newPerson.fatherId = personId;
+              else newPerson.motherId = personId;
+              next[newId] = newPerson;
             } else if (
               type === "mother" ||
               (type === "parent" && formData.gender === "F")
@@ -2554,6 +2562,14 @@
             }
             return next;
           });
+
+          if (type === "child") {
+            setExpanded((prev) => {
+              const next = new Set(prev);
+              next.add(personId);
+              return next;
+            });
+          }
         }
 
         const stats = React.useMemo(
@@ -2721,6 +2737,7 @@
                     person={selectedPid === centerId ? center : selectedPerson}
                     isCenter={selectedPid === centerId}
                     family={family}
+                    viewDirection={viewDirection}
                     onRecenter={handleRecenter}
                     onClose={() => {
                       setSelectedPid(null);
