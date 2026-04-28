@@ -61,6 +61,31 @@ test('selects a wedge and opens the person panel', async ({ page }) => {
   await expect(page.getByText(/Click any wedge to select and reveal siblings/i)).toBeVisible();
 });
 
+test('keeps default first-row parents flush and evenly split', async ({ page }) => {
+  const wheel = page.locator('svg[viewBox="0 0 1000 1000"]');
+
+  const parentAngles = await wheel.evaluate((svg) => {
+    const read = (id) => {
+      const path = svg.querySelector(`path[data-generation="1"][data-person-id="${id}"]`);
+      return {
+        start: Number(path?.getAttribute('data-start-angle')),
+        end: Number(path?.getAttribute('data-end-angle')),
+      };
+    };
+    return {
+      mother: read('elena'),
+      father: read('marcus'),
+    };
+  });
+
+  const motherWidth = parentAngles.mother.end - parentAngles.mother.start;
+  const fatherWidth = parentAngles.father.end - parentAngles.father.start;
+  const boundaryGap = parentAngles.father.start - parentAngles.mother.end;
+
+  expect(boundaryGap).toBeCloseTo(0, 6);
+  expect(motherWidth).toBeCloseTo(fatherWidth, 6);
+});
+
 test('keeps a gap between mother and father sibling fans on the first row', async ({ page }) => {
   const wheel = page.locator('svg[viewBox="0 0 1000 1000"]');
   const marcusLabel = wheel.locator('tspan', { hasText: 'Marcus' }).first();

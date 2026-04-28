@@ -1,0 +1,427 @@
+{
+  "rootId": "aria",
+  "family": {
+    "aria": {
+      "id": "aria",
+      "name": "Aria Hartwell",
+      "gender": "F",
+      "birth": "1995",
+      "birthplace": "Brooklyn, NY",
+      "occupation": "Architect",
+      "bio": "The center of this lineage. Designs sustainable urban housing.",
+      "fatherId": "marcus",
+      "motherId": "elena",
+      "spouseIds": [
+        "dylan"
+      ]
+    },
+    "dylan": {
+      "id": "dylan",
+      "name": "Dylan Chen",
+      "gender": "M",
+      "birth": "1994",
+      "birthplace": "San Francisco, CA",
+      "occupation": "Urban Ecologist",
+      "bio": "Partners with Aria on neighborhood resilience and greenway projects.",
+      "spouseIds": [
+        "aria"
+      ]
+    },
+    "noah": {
+      "id": "noah",
+      "name": "Noah Chen",
+      "gender": "M",
+      "birth": "2020",
+      "birthplace": "Brooklyn, NY",
+      "occupation": "Student",
+      "motherId": "aria",
+      "fatherId": "dylan"
+    },
+    "maya": {
+      "id": "maya",
+      "name": "Maya Chen",
+      "gender": "F",
+      "birth": "2023",
+      "birthplace": "Brooklyn, NY",
+      "occupation": "Student",
+      "motherId": "aria",
+      "fatherId": "dylan"
+    },
+    "lena": {
+      "id": "lena",
+      "name": "Lena Chen",
+      "gender": "F",
+      "birth": "2026",
+      "birthplace": "Brooklyn, NY",
+      "occupation": "Student",
+      "motherId": "aria",
+      "fatherId": "dylan"
+    },
+    "iris": {
+      "id": "iris",
+      "name": "Iris Chen",
+      "gender": "F",
+      "birth": "2046",
+      "birthplace": "Queens, NY",
+      "occupation": "Robotics Apprentice",
+      "fatherId": "noah"
+    },
+    "leo": {
+      "id": "leo",
+      "name": "Leo Chen",
+      "gender": "M",
+      "birth": "2048",
+      "birthplace": "Brooklyn, NY",
+      "occupation": "Student",
+      "fatherId": "noah"
+    },
+    "sol": {
+      "id": "sol",
+      "name": "Sol Chen",
+      "gender": "M",
+      "birth": "2050",
+      "birthplace": "Madrid, Spain",
+      "occupation": "Student",
+      "motherId": "maya"
+    },
+    "anika": {
+      "id": "anika",
+      "name": "Anika Chen",
+      "gender": "F",
+      "birth": "2072",
+      "birthplace": "Boston, MA",
+      "occupation": "Climate Cartographer",
+      "motherId": "iris"
+    },
+    "theo2": {
+      "id": "theo2",
+      "name": "Theo Chen",
+      "gender": "M",
+      "birth": "2075",
+      "birthplace": "Newark, NJ",
+      "occupation": "Student",
+      "fatherId": "leo"
+    },
+    "celia2": {
+      "id": "celia2",
+      "name": "Celia Chen",
+      "gender": "F",
+      "birth": "2077",
+      "birthplace": "Seville, Spain",
+      "occupation": "Student",
+      "fatherId": "sol"
+    },
+    "jun": {
+      "id": "jun",
+      "name": "Jun Chen",
+      "gender": "M",
+      "birth": "2101",
+      "birthplace": "Portland, ME",
+      "occupation": "Tidal Engineer",
+      "motherId": "anika"
+    },
+    "elio": {
+      "id": "elio",
+      "name": "Elio Chen",
+      "gender": "M",
+      "birth": "2104",
+      "birthplace": "Boston, MA",
+      "occupation": "Student",
+      "fatherId": "theo2"
+    },
+    "amara": {
+      "id": "amara",
+      "name": "Amara Chen",
+      "gender": "F",
+      "birth": "2107",
+      "birthplace": "Granada, Spain",
+      "occupation": "Student",
+      "motherId": "celia2"
+    },
+    "nora2": {
+      "id": "nora2",
+      "name": "Nora Chen",
+      "gender": "F",
+      "birth": "2130",
+      "birthplace": "Halifax, Canada",
+      "occupation": "Marine Archivist",
+      "fatherId": "jun"
+    },
+    "marcus": {
+      "id": "marcus",
+      "name": "Marcus Hartwell",
+      "gender": "M",
+      "birth": "1968",
+      "birthplace": "Boston, MA",
+      "occupation": "Marine Biologist",
+      "bio": "Spent two decades cataloguing reef species in the Caribbean.",
+      "fatherId": "samuel",
+      "motherId": "rosalind"
+    },
+    "elena": {
+      "id": "elena",
+      "name": "Elena Vasquez",
+      "gender": "F",
+      "birth": "1970",
+      "birthplace": "Madrid, Spain",
+      "occupation": "Concert Violinist",
+      "bio": "First chair of the Boston Symphony for 12 years.",
+      "fatherId": "miguel",
+      "motherId": "lucia"
+    },
+    "james": {
+      "id": "james",
+      "name": "James Hartwell",
+      "gender": "M",
+      "birth": "1966",
+      "birthplace": "Boston, MA",
+      "occupation": "Journalist",
+      "fatherId": "samuel",
+      "motherId": "rosalind"
+    },
+    "claire": {
+      "id": "claire",
+      "name": "Claire Hartwell",
+      "gender": "F",
+      "birth": "1971",
+      "birthplace": "Boston, MA",
+      "occupation": "Surgeon",
+      "fatherId": "samuel",
+      "motherId": "rosalind"
+    },
+    "sofia": {
+      "id": "sofia",
+      "name": "Sofia Vasquez",
+      "gender": "F",
+      "birth": "1968",
+      "birthplace": "Madrid, Spain",
+      "occupation": "Chef",
+      "fatherId": "miguel",
+      "motherId": "lucia"
+    },
+    "david": {
+      "id": "david",
+      "name": "David Vasquez",
+      "gender": "M",
+      "birth": "1973",
+      "birthplace": "Barcelona, Spain",
+      "occupation": "Professor",
+      "fatherId": "miguel",
+      "motherId": "lucia"
+    },
+    "samuel": {
+      "id": "samuel",
+      "name": "Samuel Hartwell",
+      "gender": "M",
+      "birth": "1940",
+      "death": "2018",
+      "birthplace": "Maine, USA",
+      "occupation": "Lighthouse Keeper",
+      "fatherId": "edmund",
+      "motherId": "beatrice"
+    },
+    "rosalind": {
+      "id": "rosalind",
+      "name": "Rosalind Carter",
+      "gender": "F",
+      "birth": "1942",
+      "birthplace": "Charleston, SC",
+      "occupation": "Botanist",
+      "fatherId": "theodore",
+      "motherId": "margaret"
+    },
+    "miguel": {
+      "id": "miguel",
+      "name": "Miguel Vasquez",
+      "gender": "M",
+      "birth": "1944",
+      "death": "2010",
+      "birthplace": "Seville, Spain",
+      "occupation": "Flamenco Guitarist",
+      "fatherId": "rafael",
+      "motherId": "isabel"
+    },
+    "lucia": {
+      "id": "lucia",
+      "name": "Lucia Moreno",
+      "gender": "F",
+      "birth": "1945",
+      "birthplace": "Granada, Spain",
+      "occupation": "Schoolteacher",
+      "fatherId": "joaquin",
+      "motherId": "carmen"
+    },
+    "edmund": {
+      "id": "edmund",
+      "name": "Edmund Hartwell",
+      "gender": "M",
+      "birth": "1910",
+      "death": "1985",
+      "occupation": "Shipbuilder",
+      "fatherId": "alfred",
+      "motherId": "victoria"
+    },
+    "beatrice": {
+      "id": "beatrice",
+      "name": "Beatrice Hayes",
+      "gender": "F",
+      "birth": "1912",
+      "death": "1990",
+      "occupation": "Seamstress",
+      "fatherId": "william",
+      "motherId": "ada"
+    },
+    "theodore": {
+      "id": "theodore",
+      "name": "Theodore Carter",
+      "gender": "M",
+      "birth": "1908",
+      "death": "1982",
+      "occupation": "Farmer"
+    },
+    "margaret": {
+      "id": "margaret",
+      "name": "Margaret O'Neill",
+      "gender": "F",
+      "birth": "1914",
+      "death": "1995",
+      "occupation": "Midwife"
+    },
+    "rafael": {
+      "id": "rafael",
+      "name": "Rafael Vasquez",
+      "gender": "M",
+      "birth": "1916",
+      "death": "1988",
+      "occupation": "Bullfighter"
+    },
+    "isabel": {
+      "id": "isabel",
+      "name": "Isabel Cruz",
+      "gender": "F",
+      "birth": "1918",
+      "death": "2001",
+      "occupation": "Painter"
+    },
+    "joaquin": {
+      "id": "joaquin",
+      "name": "Joaquin Moreno",
+      "gender": "M",
+      "birth": "1915",
+      "death": "1979",
+      "occupation": "Vintner"
+    },
+    "carmen": {
+      "id": "carmen",
+      "name": "Carmen Delgado",
+      "gender": "F",
+      "birth": "1920",
+      "death": "2008",
+      "occupation": "Poet"
+    },
+    "alfred": {
+      "id": "alfred",
+      "name": "Alfred Hartwell",
+      "gender": "M",
+      "birth": "1882",
+      "death": "1955",
+      "occupation": "Whaler",
+      "fatherId": "thomas_hartwell",
+      "motherId": "evelyn_marsh"
+    },
+    "victoria": {
+      "id": "victoria",
+      "name": "Victoria Pierce",
+      "gender": "F",
+      "birth": "1885",
+      "death": "1960",
+      "occupation": "Quilter",
+      "fatherId": "henry_pierce",
+      "motherId": "mabel_frost"
+    },
+    "william": {
+      "id": "william",
+      "name": "William Hayes",
+      "gender": "M",
+      "birth": "1880",
+      "death": "1948",
+      "occupation": "Blacksmith",
+      "fatherId": "arthur_hayes",
+      "motherId": "clara_dunn"
+    },
+    "ada": {
+      "id": "ada",
+      "name": "Ada Brennan",
+      "gender": "F",
+      "birth": "1884",
+      "death": "1962",
+      "occupation": "Innkeeper",
+      "fatherId": "patrick_brennan",
+      "motherId": "nora_keane"
+    },
+    "thomas_hartwell": {
+      "id": "thomas_hartwell",
+      "name": "Thomas Hartwell",
+      "gender": "M",
+      "birth": "1850",
+      "death": "1918",
+      "occupation": "Harbor Pilot"
+    },
+    "evelyn_marsh": {
+      "id": "evelyn_marsh",
+      "name": "Evelyn Marsh",
+      "gender": "F",
+      "birth": "1854",
+      "death": "1926",
+      "occupation": "Schoolmistress"
+    },
+    "henry_pierce": {
+      "id": "henry_pierce",
+      "name": "Henry Pierce",
+      "gender": "M",
+      "birth": "1852",
+      "death": "1920",
+      "occupation": "Cooper"
+    },
+    "mabel_frost": {
+      "id": "mabel_frost",
+      "name": "Mabel Frost",
+      "gender": "F",
+      "birth": "1856",
+      "death": "1932",
+      "occupation": "Herbalist"
+    },
+    "arthur_hayes": {
+      "id": "arthur_hayes",
+      "name": "Arthur Hayes",
+      "gender": "M",
+      "birth": "1848",
+      "death": "1911",
+      "occupation": "Wheelwright"
+    },
+    "clara_dunn": {
+      "id": "clara_dunn",
+      "name": "Clara Dunn",
+      "gender": "F",
+      "birth": "1853",
+      "death": "1924",
+      "occupation": "Dressmaker"
+    },
+    "patrick_brennan": {
+      "id": "patrick_brennan",
+      "name": "Patrick Brennan",
+      "gender": "M",
+      "birth": "1851",
+      "death": "1917",
+      "occupation": "Stone Mason"
+    },
+    "nora_keane": {
+      "id": "nora_keane",
+      "name": "Nora Keane",
+      "gender": "F",
+      "birth": "1857",
+      "death": "1930",
+      "occupation": "Baker"
+    }
+  }
+}
