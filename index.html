@@ -574,12 +574,14 @@
       const ROOT_ID = "aria";
 
       // ─── GEOMETRY ─────────────────────────────────────────────────────────────────
-      const SIZE = 900,
+      const SIZE = 1000,
         CX = SIZE / 2,
         CY = SIZE / 2,
         CENTER_R = 80,
-        MAX_GEN = 10;
-      const RW = 36; // ring width — fixed so CY never changes
+        MAX_GEN = 6;
+      const RW = 58; // ring width: 80 + 6 * 58 = 428, leaving a 72px safety margin
+      const FAN_SWEEP = Math.PI;
+      const ROOT_BRANCH_GAP = (8 * Math.PI) / 180;
       const MAX_WEDGE = (2 * Math.PI) / 5; // no single wedge may exceed 1/5 of the full circle
 
       function polar(cx, cy, r, a) {
@@ -656,11 +658,10 @@
         return getSpouses(pid, family)[0] || null;
       }
 
-      function fanGeometry(totalRoot, allowFullCircle = true) {
-        const fullCircle = allowFullCircle && totalRoot > 4;
-        const defaultSweep = (140 * Math.PI) / 180;
-        const sweep = fullCircle ? 2 * Math.PI : defaultSweep;
-        const startAngle = fullCircle ? Math.PI : (3 * Math.PI) / 2 - sweep / 2;
+      function fanGeometry() {
+        const fullCircle = false;
+        const sweep = FAN_SWEEP;
+        const startAngle = (3 * Math.PI) / 2 - sweep / 2;
         return { fullCircle, sweep, startAngle };
       }
 
@@ -705,9 +706,9 @@
         const fs0 = allocSlots(cp.fatherId, 1);
         const totalRoot = ms0 + fs0;
 
-        // Default fan is a 140 degree arc centered on the 12 o'clock line.
+        // Fan is a 180 degree arc centered on the 12 o'clock line.
         // CY never changes — the container clips/reveals the bottom arc.
-        const { fullCircle, sweep, startAngle } = fanGeometry(totalRoot);
+        const { fullCircle, sweep, startAngle } = fanGeometry();
 
         function build(pid, gen, a0, a1) {
           if (gen < 1 || gen > MAX_GEN) return;
@@ -795,9 +796,11 @@
           }
         }
 
-        const mw = (sweep * ms0) / totalRoot;
+        const rootGap = ms0 > 0 && fs0 > 0 ? ROOT_BRANCH_GAP : 0;
+        const usableSweep = sweep - rootGap;
+        const mw = (usableSweep * ms0) / totalRoot;
         build(cp.motherId, 1, startAngle, startAngle + mw);
-        build(cp.fatherId, 1, startAngle + mw, startAngle + sweep);
+        build(cp.fatherId, 1, startAngle + mw + rootGap, startAngle + sweep);
 
         return { wedges, fullCircle };
       }
@@ -859,11 +862,7 @@
         }
 
         const children = getChildren(centerId, family);
-        const totalRoot = children.reduce(
-          (sum, child) => sum + ownLeaves(child.id, 1),
-          0,
-        );
-        const { fullCircle, sweep, startAngle } = fanGeometry(totalRoot, false);
+        const { fullCircle, sweep, startAngle } = fanGeometry();
 
         if (children.length > 0) {
           build(centerId, 1, startAngle, startAngle + sweep);
@@ -1137,7 +1136,7 @@
             style={{
               position: "relative",
               width: "100%",
-              maxWidth: 900,
+              maxWidth: 1000,
               margin: "0 auto",
               overflow: "hidden",
               transition: "height 0.75s cubic-bezier(0.34,1.1,0.64,1)",
@@ -1215,6 +1214,11 @@
                       }}
                     >
                       <path
+                        data-person-id={w.person?.id ?? ""}
+                        data-generation={w.generation}
+                        data-sibling={w.isSibling ? "true" : "false"}
+                        data-start-angle={w.startAngle}
+                        data-end-angle={w.endAngle}
                         d={w.path}
                         fill={hasPerson ? color : "hsl(230,20%,18%)"}
                         fillOpacity={
@@ -1597,10 +1601,6 @@
               { i: 4, l: "2× Great" },
               { i: 5, l: "3× Great" },
               { i: 6, l: "4× Great" },
-              { i: 7, l: "5× Great" },
-              { i: 8, l: "6× Great" },
-              { i: 9, l: "7× Great" },
-              { i: 10, l: "8× Great" },
             ]
           : [
               { i: 0, l: "Self" },
@@ -1610,10 +1610,6 @@
               { i: 4, l: "2× Great" },
               { i: 5, l: "3× Great" },
               { i: 6, l: "4× Great" },
-              { i: 7, l: "5× Great" },
-              { i: 8, l: "6× Great" },
-              { i: 9, l: "7× Great" },
-              { i: 10, l: "8× Great" },
             ];
         return (
           <div
@@ -2334,7 +2330,7 @@
                   "Dashed-border wedges are siblings (not direct ancestors)",
                 ],
                 ["→", "Use the person card to add parents or siblings"],
-                ["→", "Wheel auto-expands to full circle when needed"],
+                ["→", "Wheel stays in fan mode with a 180° sweep"],
               ].map(([a, b], i) => (
                 <li key={i} style={{ display: "flex", gap: 8 }}>
                   <span style={{ color: "var(--primary)", flexShrink: 0 }}>
