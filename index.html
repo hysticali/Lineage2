@@ -143,6 +143,10 @@
     <div id="root"></div>
     <script type="text/babel">
       // ─── DATA LOADING ────────────────────────────────────────────────────────────
+      /**
+       * Asynchronously loads family tree data from an external JSON file.
+       * Expects the JSON to contain a `rootId` and a `family` object mapping.
+       */
       async function loadFamilyData() {
         const response = await fetch("family-data.json");
         if (!response.ok) {
@@ -256,6 +260,18 @@
       }
 
       // ─── WHEEL BUILDER ────────────────────────────────────────────────────────────
+      /**
+       * Constructs the wedges for the Ancestor Wheel.
+       * Calculates the geometry (inner/outer radius, start/end angle) for each ancestor,
+       * proportionally sizing wedges based on the number of known leaf ancestors they have.
+       * 
+       * @param {string} centerId - The ID of the person at the center of the wheel.
+       * @param {Object} family - The family dataset mapping IDs to person objects.
+       * @param {Set<string>} expanded - Set of person IDs whose ancestry is expanded.
+       * @param {string|null} sibAnchorPid - ID of the sibling group anchor.
+       * @param {string|null} dominantSibId - ID of the selected sibling to emphasize.
+       * @returns {Object} An object containing the generated `wedges` array and `fullCircle` boolean.
+       */
       // sibAnchorPid: whose siblings to show (independent of card selection)
       function buildWheel(
         centerId,
@@ -389,6 +405,16 @@
         return { wedges, fullCircle };
       }
 
+      /**
+       * Constructs the wedges for the Descendant Wheel.
+       * Iterates through children and further descendants, calculating fan wedges
+       * starting from the center outward.
+       * 
+       * @param {string} centerId - The ID of the person at the center of the wheel.
+       * @param {Object} family - The family dataset mapping IDs to person objects.
+       * @param {Set<string>} expanded - Set of person IDs whose descendants are expanded.
+       * @returns {Object} An object containing the generated `wedges` array and `fullCircle` boolean.
+       */
       function buildDescendantWheel(centerId, family, expanded) {
         const wedges = [];
 
@@ -575,6 +601,11 @@
       );
 
       // ─── LINEAGE WHEEL ────────────────────────────────────────────────────────────
+      /**
+       * The main React component that renders the interactive SVG fan chart.
+       * Supports switching between Ancestor and Descendant views, smooth animations
+       * for zooming/rotating, and interactivity (hover, click, double-click) for wedges.
+       */
       function LineageWheel({
         centerId,
         family,
