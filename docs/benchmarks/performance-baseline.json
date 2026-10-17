@@ -1,0 +1,32 @@
+{
+  "measuredAt": "2026-10-16T00:40:45.458Z",
+  "node": "v22.23.3",
+  "cpu": "AMD Ryzen 5 5600 6-Core Processor",
+  "fixture": "Balanced binary descendant tree; all six visible generations expanded; first run per tree",
+  "results": [
+    {
+      "people": 100,
+      "descendantsMs": 15.63,
+      "ancestorsMs": 0.566,
+      "searchMs": 0.072,
+      "descendantWedges": 99,
+      "ancestorWedges": 14
+    },
+    {
+      "people": 1000,
+      "descendantsMs": 188.066,
+      "ancestorsMs": 0.079,
+      "searchMs": 0.422,
+      "descendantWedges": 126,
+      "ancestorWedges": 14
+    },
+    {
+      "people": 10000,
+      "descendantsMs": 3583.861,
+      "ancestorsMs": 0.109,
+      "searchMs": 4.099,
+      "descendantWedges": 126,
+      "ancestorWedges": 14
+    }
+  ]
+}

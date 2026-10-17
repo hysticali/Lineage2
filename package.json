@@ -1,11 +1,26 @@
 {
   "name": "lineage2",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "GEDCOM-aligned interactive family lineage atlas",
+  "main": "src/server.js",
   "scripts": {
-    "test": "playwright test",
-    "test:headed": "playwright test --headed"
+    "db:migrate": "node src/db/migrate.js",
+    "db:import": "node scripts/import-family-data.js",
+    "db:backup": "node scripts/database-backup.js backup",
+    "db:restore": "node scripts/database-backup.js restore",
+    "start": "node src/server.js",
+    "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "test:unit": "node --test tests/unit/*.test.cjs",
+    "test:e2e": "playwright test",
+    "test:headed": "playwright test --headed",
+    "build": "node scripts/build.js",
+    "clean": "node scripts/clean.js",
+    "clean:reports": "node scripts/clean.js --reports-only",
+    "prestart": "npm run build",
+    "pretest:e2e": "npm run build",
+    "pretest": "npm run build",
+    "test:integration": "node --test tests/integration/*.test.cjs",
+    "benchmark": "node scripts/benchmark.js"
   },
   "repository": {
     "type": "git",
@@ -21,6 +36,20 @@
   "homepage": "https://github.com/hysticali/Lineage2#readme",
   "devDependencies": {
     "@playwright/test": "^1.59.1",
-    "@types/node": "^25.6.0"
+    "@types/node": "^25.6.0",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "supertest": "^7.2.2"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "esbuild": "^0.28.2",
+    "express": "^5.2.1",
+    "pg": "^8.23.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "allowScripts": {
+    "@embedded-postgres/linux-x64@18.4.0-beta.17": true,
+    "esbuild@0.28.2": true
   }
 }

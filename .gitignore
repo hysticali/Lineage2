@@ -1,8 +1,26 @@
-
-# Playwright
+# Dependencies
 node_modules/
+
+# Local configuration (keep the checked-in example)
+.env
+.env.*
+!.env.example
+
+# Generated build and test output
+/assets/
+/coverage/
 /test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# User-created operational backups
+/backups/
+
+# Operating-system and editor temporary files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

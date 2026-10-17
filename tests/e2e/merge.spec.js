@@ -1,0 +1,40 @@
+import { test, expect } from '@playwright/test';
+import { openTools } from '../helpers/workspace.cjs';
+
+
+test('duplicate review previews, merges, follows old links, and recovers original people', async ({ page }) => {
+  const source = '0 HEAD\n1 GEDC\n2 VERS 7.0\n0 @A@ INDI\n1 NAME Alex /Duplicate/\n1 BIRT\n2 DATE ABT 1900\n1 NOTE First assertion\n0 @B@ INDI\n1 NAME Alex /Duplicate/\n1 BIRT\n2 DATE BET 1899 AND 1901\n1 NOTE Second assertion\n0 TRLR\n';
+  const origin = 'http://127.0.0.1:43174';
+  const preview = await (await page.request.post(`${origin}/api/gedcom/preview`, { data: { source } })).json();
+  const response = await page.request.post(`${origin}/api/gedcom/import`, { data: { requestId: crypto.randomUUID(), source, name: 'Browser merge review', checksum: preview.checksum, rootReference: '@A@' } });
+  expect(response.status()).toBe(201);
+  const imported = await response.json();
+  const tree = await (await page.request.get(`${origin}/api/trees/${imported.treeId}/family-data`)).json();
+  const ids = Object.keys(tree.family);
+  await page.goto(`${origin}/?tree=${imported.treeId}`);
+  await openTools(page, 'Research');
+  await page.getByRole('button', { name: 'Review duplicates', exact: true }).click();
+  let dialog = page.getByRole('dialog', { name: 'Duplicate people review' });
+  await expect(dialog.getByText('Suggestions identify matching names, not confirmed identities.', { exact: false })).toBeVisible();
+  await dialog.getByRole('combobox', { name: 'Surviving individual', exact: true }).selectOption(ids[0]);
+  await dialog.getByRole('combobox', { name: 'Duplicate individual', exact: true }).selectOption(ids[1]);
+  await dialog.getByRole('button', { name: 'Preview person merge', exact: true }).click();
+  await expect(dialog.getByRole('region', { name: 'Merge preview' })).toContainText('Transfer 1 names, 1 events, 1 notes');
+  await dialog.getByRole('button', { name: 'Confirm person merge', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('header')).toContainText('1 people');
+  await page.goto(`${origin}/?tree=${imported.treeId}&person=${ids[1]}&selected=${ids[1]}`);
+  await expect(page.locator('[data-center-person-id]')).toHaveAttribute('data-center-person-id', ids[0]);
+  await expect(page.getByRole('heading', { name: 'Alex Duplicate', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Records and evidence', exact: true }).click();
+  dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('First assertion', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('Second assertion', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close Records and evidence — Alex Duplicate' }).click();
+  await openTools(page, 'Backups and history');
+  await page.getByRole('button', { name: 'Edit history', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /Preview recovery before revision/ }).first().click();
+  await page.getByRole('dialog', { name: 'Database restore preview' }).getByRole('button', { name: 'Confirm database restore', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('header')).toContainText('2 people');
+});

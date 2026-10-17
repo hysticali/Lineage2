@@ -1,0 +1,106 @@
+0 HEAD
+1 GEDC
+2 VERS 7.0
+1 SOUR FIXTURE
+1 SCHMA
+2 TAG _RESEARCH urn:example:research
+2 TAG _LINK urn:example:link
+0 @I1@ INDI
+1 NAME Alex /de la Cruz/
+2 GIVN Alex
+2 SURN de la Cruz
+2 NOTE Name from original register
+2 SOUR @S1@
+3 PAGE 2
+1 NAME Alex /Durand/
+2 TYPE BIRTH
+1 SEX X
+1 BIRT
+2 DATE ABT 1900
+2 PLAC Paris, France
+3 MAP
+4 LATI N48.8566
+4 LONG E2.3522
+2 SOUR @S1@
+3 PAGE 12
+3 DATA
+4 TEXT The original entry.
+5 CONT @@uncertain identity
+3 QUAY 2
+2 OBJE @M1@
+1 BIRT
+2 DATE BET 1899 AND 1901
+2 PLAC Montréal, Canada
+1 NOTE Compare the two birth assertions.
+1 SNOTE @N1@
+1 FAMC @F2@
+2 PEDI ADOPTED
+1 FAMC @F1@
+2 PEDI BIRTH
+1 FAMS @F3@
+1 FAMS @F4@
+1 _RESEARCH Retain this extension
+2 _LINK @I2@
+1 OBJE @M1@
+0 @I2@ INDI
+1 NAME Jane /Parent/
+1 SEX F
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Jess /Parent/
+1 SEX F
+1 FAMS @F1@
+0 @I4@ INDI
+1 NAME Morgan /Guardian/
+1 SEX U
+1 FAMS @F2@
+0 @I5@ INDI
+1 NAME Sam /Partner/
+1 SEX M
+1 FAMS @F3@
+0 @I6@ INDI
+1 NAME Robin /Child/
+1 FAMC @F3@
+2 PEDI FOSTER
+0 @I7@ INDI
+1 NAME Drew /Partner/
+1 FAMS @F4@
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I3@
+1 CHIL @I1@
+1 NOTE Both partners are recorded as female.
+0 @F2@ FAM
+1 WIFE @I4@
+1 CHIL @I1@
+0 @F3@ FAM
+1 HUSB @I5@
+1 WIFE @I1@
+1 CHIL @I6@
+1 MARR
+2 DATE FROM 1920 TO 1922
+2 PLAC Rome, Italy
+2 SOUR @S1@
+3 PAGE 99
+0 @F4@ FAM
+1 HUSB @I1@
+1 WIFE @I7@
+1 CHIL @VOID@
+0 @S1@ SOUR
+1 TITL Civil register
+1 AUTH Town clerk
+1 PUBL Archive volume 3
+1 REPO @R1@
+2 CALN BOX 12
+0 @R1@ REPO
+1 NAME Municipal Archive
+1 ADDR 10 Archive Street
+1 WWW https://example.invalid/archive
+0 @M1@ OBJE
+1 FILE photos/register.jpg
+2 FORM image/jpeg
+2 TITL Original register scan
+0 @N1@ SNOTE Shared research context.
+1 SOUR @S1@
+2 PAGE 15
+0 TRLR
