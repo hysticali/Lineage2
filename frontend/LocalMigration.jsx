@@ -1,5 +1,6 @@
 import React from 'react';
 import Modal from './Modal';
+import { readJson } from './http';
 
 export default function LocalMigration({ treeId, archive, onBeforeApply, onApplied }) {
   const [preview, setPreview] = React.useState(null);
@@ -10,9 +11,7 @@ export default function LocalMigration({ treeId, archive, onBeforeApply, onAppli
     const response = await fetch(`/api/trees/${encodeURIComponent(treeId)}/local-migration${path}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Migration failed');
-    return data;
+    return readJson(response, 'Migration failed');
   }
   async function inspect() {
     setBusy(true); setError('');

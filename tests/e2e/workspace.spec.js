@@ -67,6 +67,18 @@ test('pan preserves the viewed world point through zoom and resize; Center and F
   await expect(page.getByLabel('Zoom level')).toHaveText('100%');
   closePoint((await geometry(page)).world, { x: 500, y: 500 }, .1);
   expect(new URL(page.url()).searchParams.get('selected')).toBe('elena');
+
+  // Keyboard zoom shortcuts (+, -, 0) on the focused chart region
+  await viewport.focus();
+  await viewport.press('+');
+  await expect(page.getByLabel('Zoom level')).toHaveText('125%');
+  await viewport.press('-');
+  await expect(page.getByLabel('Zoom level')).toHaveText('100%');
+  await viewport.press('+');
+  await viewport.press('+');
+  await expect(page.getByLabel('Zoom level')).toHaveText('150%');
+  await viewport.press('0');
+  await expect(page.getByLabel('Zoom level')).toHaveText('100%');
 });
 
 test('tools and nested recovery dialogs keep wheel geometry stable and trap focus only in the active layer', async ({ page }) => {

@@ -1,11 +1,10 @@
 import React from 'react';
 import Modal from './Modal';
+import { readJson } from './http';
 
 export async function accessApi(url, body, method = 'POST') {
   const response = await fetch(url, body === undefined ? {} : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Access request failed');
-  return data;
+  return readJson(response, 'Access request failed');
 }
 
 function AccountForm({ session, invite, onDone }) {
@@ -88,24 +87,35 @@ function AccountMenu({ user, onDone }) {
 
 export default function AccessBoundary({ children }) {
   const [session, setSession] = React.useState(null), [error, setError] = React.useState(''), [epoch, setEpoch] = React.useState(0);
+  const sessionMode = session?.mode;
   const params = new URLSearchParams(location.search), invite = params.get('invite'), share = params.get('share');
   const reload = React.useCallback(() => { setSession(null); setError(''); setEpoch(n => n + 1); }, []);
   React.useEffect(() => {
+    if (sessionMode === 'local') return;
     let active = true;
+    let controller = null;
     async function check() {
+      controller?.abort();
+      controller = new AbortController();
       try {
-        const response = await fetch('/api/auth/session');
+        const response = await fetch('/api/auth/session', { signal: controller.signal });
         const staticPage = document.querySelector('meta[name="lineage-mode"]')?.content !== 'database';
-        const next = staticPage && response.status === 404 && !(response.headers.get('content-type') || '').includes('application/json') ? { mode: 'local', user: null } : await response.json();
-        if (!response.ok && next.mode !== 'local') throw new Error(next.error || 'Account service is unavailable');
+        const next = staticPage && response.status === 404 && !(response.headers.get('content-type') || '').includes('application/json')
+          ? { mode: 'local', user: null }
+          : await readJson(response, 'Account service is unavailable');
         if (active) { setError(''); setSession(current => current?.user?.id === next.user?.id && current?.mode === next.mode && current?.setupAvailable === next.setupAvailable ? current : next); }
-      } catch { if (active) setError('Account service is unavailable. Unsaved forms are retained in memory while reconnecting.'); }
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+        if (active) setError('Account service is unavailable. Unsaved forms are retained in memory while reconnecting.');
+      }
     }
     check();
+    // Only private sessions can expire or change; local/static never need polling.
+    if (sessionMode !== 'private') return () => { active = false; controller?.abort(); };
     const timer = setInterval(check, 5000);
     addEventListener('focus', check);
-    return () => { active = false; clearInterval(timer); removeEventListener('focus', check); };
-  }, [epoch]);
+    return () => { active = false; controller?.abort(); clearInterval(timer); removeEventListener('focus', check); };
+  }, [epoch, sessionMode]);
   if (!session) return <main className="load-state"><h1>Rootline</h1>{error ? <><p role="alert">{error}</p><button onClick={reload}>Retry loading archive</button></> : <p role="status">Loading workspace…</p>}</main>;
   if (session.mode === 'private' && !share && (invite || !session.user)) return <AccountForm key={`${epoch}:${invite}`} session={session} invite={invite} onDone={reload} />;
   return <React.Fragment key={`${epoch}:${session.user?.id || 'local'}`}>

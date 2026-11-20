@@ -8,6 +8,7 @@
     "db:import": "node scripts/import-family-data.js",
     "db:backup": "node scripts/database-backup.js backup",
     "db:restore": "node scripts/database-backup.js restore",
+    "db:prune": "node scripts/database-prune.js",
     "start": "node src/server.js",
     "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "test:unit": "node --test tests/unit/*.test.cjs",
@@ -30,6 +31,9 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
   "bugs": {
     "url": "https://github.com/hysticali/Lineage2/issues"
   },

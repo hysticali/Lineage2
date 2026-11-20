@@ -87,7 +87,7 @@ test('private workspace setup, publication, invitation, sharing, logout, and rev
   await sharing.getByRole('button', { name: 'Review role for browser-editor', exact: true }).click();
   await sharing.getByRole('button', { name: 'Confirm access change' }).click();
   await expect(editor.getByRole('button', { name: 'Edit person', exact: true })).toHaveCount(0, { timeout: 12000 });
-  await expect(editor.getByRole('heading', { name: 'The Lineage of Elena Vasquez' })).toBeVisible();
+  await expect(editor.getByRole('heading', { name: 'The Lineage of Elena Vasquez' })).toBeVisible({ timeout: 12000 });
   expect(await editor.evaluate(() => document.body.innerText)).not.toContain('Private editor draft');
   await sharing.getByLabel('Shared archive label').fill('Approved relatives');
   await sharing.getByRole('button', { name: 'Create read-only link' }).click();

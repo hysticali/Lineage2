@@ -22,20 +22,33 @@ function wedgePath(cx, cy, r0, r1, a0, a1) {
   return `M${p0.x} ${p0.y} L${p1.x} ${p1.y} A${r1} ${r1} 0 ${la} 1 ${p2.x} ${p2.y} L${p3.x} ${p3.y} A${r0} ${r0} 0 ${la} 0 ${p0.x} ${p0.y} Z`;
 }
 
+function arcPath(cx, cy, r, a0, a1) {
+  const p0 = polar(cx, cy, r, a0),
+    p1 = polar(cx, cy, r, a1);
+  const la = a1 - a0 > Math.PI ? 1 : 0;
+  return `M${p0.x} ${p0.y} A${r} ${r} 0 ${la} 1 ${p1.x} ${p1.y}`;
+}
+
 function genColor(gen) {
   return [
-    "hsl(284,84%,66%)",
-    "hsl(248,84%,68%)",
-    "hsl(214,90%,64%)",
-    "hsl(188,82%,56%)",
-    "hsl(164,72%,50%)",
-    "hsl(118,62%,55%)",
-    "hsl(58,88%,62%)",
-    "hsl(34,92%,61%)",
-    "hsl(14,88%,62%)",
-    "hsl(342,82%,65%)",
-    "hsl(312,78%,66%)",
+    "hsl(268,72%,56%)",
+    "hsl(252,68%,50%)",
+    "hsl(216,72%,44%)",
+    "hsl(192,74%,36%)",
+    "hsl(166,66%,32%)",
+    "hsl(138,52%,32%)",
+    "hsl(36,76%,38%)",
+    "hsl(18,74%,40%)",
+    "hsl(352,68%,42%)",
+    "hsl(326,62%,42%)",
+    "hsl(296,58%,42%)",
   ][Math.min(gen, 10)];
+}
+
+function extractYear(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const match = String(value || "").match(/\b(\d{3,4})\b/);
+  return match ? Number(match[1]) : 9999;
 }
 
 const { getSiblings, getChildren, getSpouses, getSpouse } = require('./graph');
@@ -68,7 +81,6 @@ function insetAngles(a0, a1) {
  * @param {string|null} dominantSibId - ID of the selected sibling to emphasize.
  * @returns {Object} An object containing the generated `wedges` array and `fullCircle` boolean.
  */
-// sibAnchorPid: whose siblings to show (independent of card selection)
 function buildWheel(
   centerId,
   family,
@@ -104,7 +116,7 @@ function buildWheel(
   // CY never changes — the container clips/reveals the bottom arc.
   const { fullCircle, sweep, startAngle } = fanGeometry();
 
-  function build(pid, gen, a0, a1) {
+  function build(pid, gen, a0, a1, path, parentChildId, slot, lineageSide, ancestorKeys) {
     if (gen < 1 || gen > MAX_GEN) return;
     const p = pid ? family[pid] : null;
     const r0 = CENTER_R + (gen - 1) * RW,
@@ -114,8 +126,7 @@ function buildWheel(
     if (pid && showSibs.has(pid)) {
       const sibs = getSiblings(pid, family);
       const all = [...sibs, p].sort(
-        (a, b) =>
-          (parseInt(a?.birth) || 9999) - (parseInt(b?.birth) || 9999),
+        (a, b) => extractYear(a?.birth) - extractYear(b?.birth),
       );
       group = all.map((m) => ({
         pid: m.id,
@@ -159,6 +170,18 @@ function buildWheel(
       const gp = g.pid ? family[g.pid] : null;
       const mid = (ga0 + ga1) / 2;
       const lp = polar(CX, CY, (r0 + r1) / 2, mid);
+      const key = g.isSelf
+        ? `anc:${path}:${g.pid || "empty"}`
+        : `anc:${path}:sib:${g.pid}`;
+      const shouldExpand = g.isSelf && (gen < 2 || (p && expanded.has(pid)));
+      const hasMore = Boolean(
+        g.isSelf &&
+          gp &&
+          !shouldExpand &&
+          gen < MAX_GEN &&
+          (gp.motherId || gp.fatherId),
+      );
+      const trail = [...ancestorKeys, key];
 
       wedges.push({
         person: gp,
@@ -169,22 +192,24 @@ function buildWheel(
         outerRadius: r1,
         path: wedgePath(CX, CY, r0, r1, ga0, ga1),
         labelPos: { x: lp.x, y: lp.y },
-        key: `${g.pid || "empty"}:${gen}:${ga0}:${ga1}`,
+        key,
         isSibling: !g.isSelf,
+        hasMore,
+        lineageSide,
+        parentChildId: !gp && g.isSelf ? parentChildId : null,
+        slot: !gp && g.isSelf ? slot : null,
+        trail,
       });
 
-      if (g.isSelf) {
-        const shouldExpand = gen < 2 || (p && expanded.has(pid));
-        if (shouldExpand) {
-          const ms = allocSlots(p?.motherId, gen + 1);
-          const fs = allocSlots(p?.fatherId, gen + 1);
-          const tot = ms + fs;
-          if (tot > 0) {
-            const { ca0, ca1 } = insetAngles(ga0, ga1);
-            const mw = ((ca1 - ca0) * ms) / tot;
-            build(p?.motherId, gen + 1, ca0, ca0 + mw);
-            build(p?.fatherId, gen + 1, ca0 + mw, ca1);
-          }
+      if (shouldExpand) {
+        const ms = allocSlots(p?.motherId, gen + 1);
+        const fs = allocSlots(p?.fatherId, gen + 1);
+        const tot = ms + fs;
+        if (tot > 0) {
+          const { ca0, ca1 } = insetAngles(ga0, ga1);
+          const mw = ((ca1 - ca0) * ms) / tot;
+          build(p?.motherId, gen + 1, ca0, ca0 + mw, `${path}-M`, p?.id || null, "mother", lineageSide, trail);
+          build(p?.fatherId, gen + 1, ca0 + mw, ca1, `${path}-F`, p?.id || null, "father", lineageSide, trail);
         }
       }
     }
@@ -195,8 +220,8 @@ function buildWheel(
   const rootGap = ms0 > 0 && fs0 > 0 && rootHasSiblingFan ? ROOT_BRANCH_GAP : 0;
   const usableSweep = sweep - rootGap;
   const mw = (usableSweep * ms0) / totalRoot;
-  build(cp.motherId, 1, startAngle, startAngle + mw);
-  build(cp.fatherId, 1, startAngle + mw + rootGap, startAngle + sweep);
+  build(cp.motherId, 1, startAngle, startAngle + mw, "M", centerId, "mother", "maternal", []);
+  build(cp.fatherId, 1, startAngle + mw + rootGap, startAngle + sweep, "F", centerId, "father", "paternal", []);
 
   return { wedges, fullCircle };
 }
@@ -225,7 +250,7 @@ function buildDescendantWheel(centerId, family, expanded) {
     );
   }
 
-  function build(pid, gen, a0, a1) {
+  function build(pid, gen, a0, a1, path, ancestorKeys) {
     if (gen < 1 || gen > MAX_GEN || !pid) return;
     const children = getChildren(pid, family);
     if (children.length === 0) return;
@@ -238,7 +263,7 @@ function buildDescendantWheel(centerId, family, expanded) {
     );
     let cursor = a0;
 
-    for (const child of children) {
+    children.forEach((child, index) => {
       const leaves = ownLeaves(child.id, gen);
       const gw = ((a1 - a0) * leaves) / totalLeaves;
       const ga0 = cursor,
@@ -246,6 +271,15 @@ function buildDescendantWheel(centerId, family, expanded) {
       cursor = ga1;
       const mid = (ga0 + ga1) / 2;
       const lp = polar(CX, CY, (r0 + r1) / 2, mid);
+      const childPath = path ? `${path}-${index}` : String(index);
+      const key = `desc:${childPath}:${child.id}`;
+      const shouldExpand = gen < 2 || expanded.has(child.id);
+      const hasMore = Boolean(
+        !shouldExpand &&
+          gen < MAX_GEN &&
+          getChildren(child.id, family).length > 0,
+      );
+      const trail = [...ancestorKeys, key];
 
       wedges.push({
         person: child,
@@ -256,27 +290,50 @@ function buildDescendantWheel(centerId, family, expanded) {
         outerRadius: r1,
         path: wedgePath(CX, CY, r0, r1, ga0, ga1),
         labelPos: { x: lp.x, y: lp.y },
-        key: `${child.id}:${gen}:${ga0}:${ga1}`,
+        key,
         isSibling: false,
+        hasMore,
+        lineageSide: "descendant",
+        parentChildId: null,
+        slot: null,
+        trail,
       });
 
-      if (gen < 2 || expanded.has(child.id)) {
+      if (shouldExpand) {
         const { ca0, ca1 } = insetAngles(ga0, ga1);
-        build(child.id, gen + 1, ca0, ca1);
+        build(child.id, gen + 1, ca0, ca1, childPath, trail);
       }
-    }
+    });
   }
 
   const children = getChildren(centerId, family);
   const { fullCircle, sweep, startAngle } = fanGeometry();
 
   if (children.length > 0) {
-    build(centerId, 1, startAngle, startAngle + sweep);
+    build(centerId, 1, startAngle, startAngle + sweep, "", []);
   }
 
   return { wedges, fullCircle };
 }
 
-// ─── ICONS ────────────────────────────────────────────────────────────────────
-
-module.exports = { SIZE, CX, CY, CENTER_R, MAX_GEN, RW, polar, wedgePath, genColor, getSiblings, getChildren, getSpouses, getSpouse, fanGeometry, insetAngles, buildWheel, buildDescendantWheel };
+module.exports = {
+  SIZE,
+  CX,
+  CY,
+  CENTER_R,
+  MAX_GEN,
+  RW,
+  polar,
+  wedgePath,
+  arcPath,
+  genColor,
+  extractYear,
+  getSiblings,
+  getChildren,
+  getSpouses,
+  getSpouse,
+  fanGeometry,
+  insetAngles,
+  buildWheel,
+  buildDescendantWheel,
+};

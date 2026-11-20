@@ -30,6 +30,17 @@ const references = {
   gedcom_fragments: { owner_entity_id: 'entities', import_job_id: 'import_jobs' },
 };
 
+const orderBy = {
+  family_partners: 'r.family_id, r.person_id',
+  family_children: 'r.family_id, r.person_id',
+  restrictions: 'r.entity_id, r.restriction',
+  import_xrefs: 'r.import_job_id, r.xref',
+  media_links: 'r.media_object_id, r.target_entity_id',
+  media_blobs: 'r.media_file_id',
+  gedcom_documents: 'r.import_job_id',
+  gedcom_nodes: 'r.entity_id',
+};
+
 async function snapshotTree(client, treeId) {
   const tree = (await client.query('SELECT to_jsonb(t) AS row FROM trees t WHERE id = $1', [treeId])).rows[0]?.row;
   if (!tree) throw new InputError('Tree not found', 404);
@@ -44,7 +55,8 @@ async function snapshotTree(client, treeId) {
     else if (table === 'gedcom_documents') condition = 'r.import_job_id IN (SELECT id FROM import_jobs WHERE tree_id = $1)';
     else if (table === 'gedcom_fragments') condition = 'r.owner_entity_id IN (SELECT id FROM entities WHERE tree_id = $1)';
     else condition = 'r.entity_id IN (SELECT id FROM entities WHERE tree_id = $1)';
-    data[table] = (await client.query(`SELECT to_jsonb(r) AS row FROM ${table} r WHERE ${condition} ORDER BY to_jsonb(r)::text`, [treeId])).rows.map(r => r.row);
+    const order = orderBy[table] || 'r.id';
+    data[table] = (await client.query(`SELECT to_jsonb(r) AS row FROM ${table} r WHERE ${condition} ORDER BY ${order}`, [treeId])).rows.map(r => r.row);
   }
   return { format: 'rootline-tree', version: 2, tree, tables: data };
 }

@@ -53,17 +53,21 @@ function createApp({ repository, staticDir = path.resolve(__dirname, '..'), auth
   });
 
   app.post('/api/gedcom/preview', (request, response) => {
-    const plan = planGedcom(request.body.source);
-    response.json({ ...plan.report, checksum: createHash('sha256').update(request.body.source, 'utf8').digest('hex') });
+    const source = request.body?.source;
+    if (typeof source !== 'string') return response.status(400).json({ error: 'GEDCOM source text is required' });
+    const plan = planGedcom(source);
+    response.json({ ...plan.report, checksum: createHash('sha256').update(source, 'utf8').digest('hex') });
   });
 
   app.post('/api/gedcom/import', async (request, response) => {
-    response.status(201).json(await importGedcom(repository.pool, request.body, { creatorId: request.actor.id }));
+    response.status(201).json(await importGedcom(repository.pool, request.body || {}, { creatorId: request.actor.id }));
   });
 
   app.post('/api/trees/:treeId/gedcom/preview', async (request, response) => {
     if (!UUID_PATTERN.test(request.params.treeId)) return response.status(400).json({ error: 'Invalid tree ID' });
-    response.json(await previewExistingGedcom(repository.pool, request.params.treeId, request.body.source));
+    const source = request.body?.source;
+    if (typeof source !== 'string') return response.status(400).json({ error: 'GEDCOM source text is required' });
+    response.json(await previewExistingGedcom(repository.pool, request.params.treeId, source));
   });
 
   app.post('/api/trees/:treeId/gedcom/import', async (request, response) => {
@@ -87,7 +91,7 @@ function createApp({ repository, staticDir = path.resolve(__dirname, '..'), auth
 
   app.post('/api/trees/:treeId/merge/preview', async (request, response) => {
     if (!UUID_PATTERN.test(request.params.treeId)) return response.status(400).json({ error: 'Invalid tree ID' });
-    response.json(await previewMerge(repository.pool, request.params.treeId, request.body));
+    response.json(await previewMerge(repository.pool, request.params.treeId, request.body || {}));
   });
 
   app.post('/api/trees/:treeId/merge', async (request, response) => {
@@ -131,16 +135,16 @@ function createApp({ repository, staticDir = path.resolve(__dirname, '..'), auth
   });
 
   app.post('/api/backups/preview', async (request, response) => {
-    const summary = validateSnapshot(request.body.backup);
+    const summary = validateSnapshot(request.body?.backup);
     const existing = await repository.getTree(summary.treeId);
     if (existing) await access.role(request, summary.treeId, 'EDITOR');
     response.json({ summary, exists: Boolean(existing), revision: existing?.revision });
   });
 
   app.post('/api/backups/restore', async (request, response) => {
-    const summary = validateSnapshot(request.body.backup);
+    const summary = validateSnapshot(request.body?.backup);
     if (await repository.getTree(summary.treeId)) await access.role(request, summary.treeId, 'EDITOR');
-    response.json(await restoreNewTree(repository.pool, request.body.backup, request.body.requestId, { creatorId: request.actor.id }));
+    response.json(await restoreNewTree(repository.pool, request.body?.backup, request.body?.requestId, { creatorId: request.actor.id }));
   });
 
   app.post('/api/trees/:treeId/restore', async (request, response) => {
@@ -237,7 +241,7 @@ function createApp({ repository, staticDir = path.resolve(__dirname, '..'), auth
     if (!UUID_PATTERN.test(request.params.treeId)) return response.status(400).json({ error: 'Invalid tree ID' });
     const current = await repository.getWheelFamilyData(request.params.treeId);
     if (!current) return response.status(404).json({ error: 'Tree not found' });
-    try { response.json({ revision: current.revision, plan: planLocalMigration(current, request.body.archive) }); }
+    try { response.json({ revision: current.revision, plan: planLocalMigration(current, request.body?.archive) }); }
     catch (error) { response.status(400).json({ error: error.message }); }
   });
 

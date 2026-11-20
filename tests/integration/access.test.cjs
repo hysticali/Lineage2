@@ -270,3 +270,32 @@ test('private imports and missing-tree restores assign ownership without cross-a
     await owner.post('/api/backups/restore').send(restore).expect(404);
   });
 });
+
+test('invitation role upgrades, request validation guards, locked citations, and compact history snapshots', async () => {
+  await fixture(async ({ db, owner, endpoint, treeId, invite }) => {
+    const { agent: member } = await invite('upgradable-member', 'VIEWER');
+    const upgradeInvite = (await owner.post(`${endpoint}/access/invitations`).send({ username: 'upgradable-member', role: 'EDITOR' }).expect(201)).body;
+    await member.post(`/api/auth/invitations/${upgradeInvite.token}/accept`).send({}).expect(200);
+    assert.equal((await member.get(`${endpoint}/family-data`).expect(200)).body.permissions.role, 'EDITOR');
+
+    const downgradeInvite = (await owner.post(`${endpoint}/access/invitations`).send({ username: 'upgradable-member', role: 'VIEWER' }).expect(201)).body;
+    await member.post(`/api/auth/invitations/${downgradeInvite.token}/accept`).send({}).expect(200);
+    assert.equal((await member.get(`${endpoint}/family-data`).expect(200)).body.permissions.role, 'EDITOR');
+
+    await owner.post('/api/gedcom/preview').send({}).expect(400);
+    await owner.post('/api/gedcom/preview').send({ source: 123 }).expect(400);
+    await owner.post(`${endpoint}/gedcom/preview`).send({}).expect(400);
+    await owner.post('/api/backups/preview').send({}).expect(400);
+
+    const createdSource = (await owner.post(`${endpoint}/people/aria/records`).send({ expectedRevision: 0, requestId: randomUUID(), kind: 'source', fields: { title: 'Parish Register' } }).expect(200)).body;
+    const sourceId = createdSource.recordId;
+    const createdCitation = (await owner.post(`${endpoint}/people/aria/records`).send({ expectedRevision: 1, requestId: randomUUID(), kind: 'citation', fields: { source_id: sourceId, target_entity_id: createdSource.archive.family.aria.uuid, page_text: 'p. 12' } }).expect(200)).body;
+    await db.pool.query("INSERT INTO restrictions (entity_id, restriction) VALUES ($1, 'LOCKED')", [createdCitation.recordId]);
+    await member.post(`${endpoint}/people/aria/records`).send({ expectedRevision: 2, requestId: randomUUID(), kind: 'source', recordId: sourceId, fields: { title: 'Tampered Register' } }).expect(403);
+    await owner.post(`${endpoint}/people/aria/records`).send({ expectedRevision: 2, requestId: randomUUID(), kind: 'source', recordId: sourceId, fields: { title: 'Owner Register' } }).expect(200);
+
+    const change = (await db.pool.query('SELECT before_snapshot, after_snapshot FROM tree_changes WHERE tree_id = $1 ORDER BY revision DESC LIMIT 1', [treeId])).rows[0];
+    assert.ok(change.before_snapshot);
+    assert.equal(change.after_snapshot, null);
+  });
+});

@@ -4,6 +4,13 @@ All notable changes to the Lineage2 project will be documented in this file.
 
 ## [Unreleased]
 
+- feat: Add `npm run db:prune` (dry-run by default; `--apply` to delete) to prune old `tree_changes` beyond 100 entries per tree, old `mutation_receipts` (30 days), old `security_events` (365 days), and expired `auth_sessions` / `auth_failures`.
+- fix: Upgrade existing `VIEWER` memberships to `EDITOR` when accepting an `EDITOR` invitation without downgrading `OWNER` or `EDITOR` roles.
+- fix: Enforce `LOCKED` citation restrictions when editing the cited source, and validate request bodies on GEDCOM/backup/migration preview and restore routes with `400` responses instead of `500`.
+- fix: Poll `/api/auth/session` only in private mode and handle non-JSON HTTP responses cleanly across frontend fetch callers via `frontend/http.js`.
+- perf: Drop redundant `tree_changes.after_snapshot` generation (plus migration `008_compact_history.sql` to clear old values) and order `snapshotTree` queries by primary key instead of `to_jsonb(r)::text`.
+- refactor: Extract `frontend/icons.jsx`, `frontend/LineageWheel.jsx`, and `frontend/PersonCard.jsx` from `frontend/main.jsx`.
+
 ### Development checkpoint — 2026-10-17
 
 This checkpoint records the database-backed genealogy application, evidence and

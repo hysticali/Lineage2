@@ -114,9 +114,21 @@ dialog. Private data is not sent to an external monitoring service.
 The server drains connections on SIGTERM/SIGINT and closes PostgreSQL clients;
 after ten seconds it closes remaining HTTP connections. Use your service
 manager's restart and log rotation facilities. Choose alert thresholds and an
-operator before hosting real data. History stores complete snapshots, including
-attachments; monitor its growth. This release does not prune recovery history
-automatically.
+operator before hosting real data. History stores complete `before_snapshot` copies, including attachments; monitor
+its growth. The server does not prune recovery history automatically. To inspect
+or prune old records manually, run `npm run db:prune`:
+
+```sh
+# Dry run (prints counts without deleting)
+npm run db:prune
+
+# Apply retention defaults (keep 100 history entries/tree, 30d receipts, 365d security events)
+npm run db:prune -- --apply
+```
+
+Override defaults with `--keep-history=N`, `--receipt-days=N`, and
+`--security-days=N`. Expired `auth_sessions` and `auth_failures` are also
+cleaned up by `db:prune`.
 
 ## Three different backup types
 

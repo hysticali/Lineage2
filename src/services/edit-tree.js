@@ -277,7 +277,7 @@ async function mutateTree(pool, treeId, request, action, context = {}) {
       for (const row of beforeSnapshot.tables.facts) if (affected.has(row.family_id)) affected.add(row.id);
       for (const row of beforeSnapshot.tables.notes) if (affected.has(row.family_id) || affected.has(row.fact_id)) affected.add(row.id);
       for (const row of beforeSnapshot.tables.citations) if (affected.has(row.target_entity_id)) affected.add(row.id);
-      for (const row of beforeSnapshot.tables.citations) if (row.source_id === request.recordId) affected.add(row.target_entity_id);
+      for (const row of beforeSnapshot.tables.citations) if (row.source_id === request.recordId) { affected.add(row.id); affected.add(row.target_entity_id); }
       for (const row of beforeSnapshot.tables.media_links) if (affected.has(row.target_entity_id)) affected.add(row.media_object_id);
       if ((['restore-tree', 'restore-history'].includes(action) && locked.size) || [...affected].some(id => locked.has(id))) throw new InputError('A locked record requires a tree owner to make this change', 403);
     }
@@ -315,8 +315,7 @@ async function mutateTree(pool, treeId, request, action, context = {}) {
     } else throw new InputError('Unsupported edit action');
     await client.query('UPDATE trees SET revision = revision + 1, updated_at = current_timestamp WHERE id = $1', [treeId]);
     const after = await repository.getWheelFamilyData(treeId);
-    const afterSnapshot = await snapshotTree(client, treeId);
-    await client.query('INSERT INTO tree_changes (id, tree_id, revision, action, before_data, after_data, before_snapshot, after_snapshot, actor_id, actor_label) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10)', [randomUUID(), treeId, after.revision, action, JSON.stringify(before), JSON.stringify(after), JSON.stringify(beforeSnapshot), JSON.stringify(afterSnapshot), context.actor?.id || null, context.actor?.username || 'Local user']);
+    await client.query('INSERT INTO tree_changes (id, tree_id, revision, action, before_data, after_data, before_snapshot, after_snapshot, actor_id, actor_label) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, NULL, $8, $9)', [randomUUID(), treeId, after.revision, action, JSON.stringify(before), JSON.stringify(after), JSON.stringify(beforeSnapshot), context.actor?.id || null, context.actor?.username || 'Local user']);
     const response = { personId, ...(recordId && { recordId }), ...(merge && { merge }), ...(imported && { imported }), archive: after };
     if (action === 'edit-record') response.records = await require('./person-records').personRecords(client, treeId, personId);
     await client.query('INSERT INTO mutation_receipts (tree_id, request_id, request_hash, response) VALUES ($1, $2, $3, $4::jsonb)', [treeId, request.requestId, hash, JSON.stringify(response)]);

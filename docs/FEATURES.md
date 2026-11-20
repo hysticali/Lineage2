@@ -218,7 +218,9 @@ tokens are stored in browser localStorage.
 | Viewer | Approved basic details and relationships only. No writes, original imports, evidence/media, full backups, or history. |
 
 Permissions are enforced by the API, including alternate download, import,
-restore, and history paths. Tree mutations recheck editor permission inside the
+restore, and history paths. Accepting an `EDITOR` invitation upgrades an
+existing `VIEWER` membership, while `OWNER` and `EDITOR` roles are never
+downgraded by an invitation. Tree mutations recheck editor permission inside the
 transaction after locking the tree. Removing permission while a save waits
 therefore prevents the queued write. Locked assertions require an owner for
 affected edits, local migration, merges, or full-tree replacement.
@@ -230,8 +232,9 @@ but refreshing or signing out discards unsaved in-memory work. Browser recovery
 copies in private mode last only for that mounted workspace: download a backup
 to keep them. Local/static mode retains its existing persistent browser saves.
 
-The interface checks account/tree access every five seconds and on window focus.
-It clears the mounted workspace on verified sign-out, denied access, removed
+In private mode, the interface checks account/tree access every five seconds and
+on window focus. Local and static modes check the session once on load without
+background polling. It clears the mounted workspace on verified sign-out, denied access, removed
 membership, or a role change; moving from editor to viewer discards private tree
 state and open forms. Server enforcement applies to each request immediately;
 previously downloaded data cannot be recalled. Temporary network/server errors

@@ -28,7 +28,7 @@ test('fits the 1000-unit fan into the available chart viewport', async ({ page }
 
 test('keeps the chart in 180 degree fan mode', async ({ page }) => {
   const wheel = page.locator('svg[viewBox="0 0 1000 1000"]');
-  const wedgePaths = wheel.locator('path[fill^="hsl(248"], path[fill^="hsl(214"], path[fill^="hsl(188"], path[fill^="hsl(164"], path[fill^="hsl(118"], path[fill^="hsl(58"]');
+  const wedgePaths = wheel.locator('path[data-generation][data-person-id]:not([data-person-id=""])');
   await expect(wedgePaths.first()).toBeVisible();
 
   const extent = await wedgePaths.evaluateAll((nodes) => {
@@ -238,4 +238,45 @@ test('switches direction from the selected person and keeps their details open',
   await page.getByRole('button', { name: 'Show descendants' }).click();
   await expect(page.getByRole('heading', { name: 'Descendants of Aria Hartwell' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Aria Hartwell', exact: true })).toBeVisible();
+});
+
+test('static mode checks session once and does not poll in the background', async ({ page }) => {
+  let sessionRequests = 0;
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/auth/session') sessionRequests += 1;
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'The Lineage of Aria Hartwell' })).toBeVisible();
+  await page.waitForTimeout(6000);
+  expect(sessionRequests).toBe(1);
+});
+
+test('toggles sibling fan off, navigates via relative chips and breadcrumbs, and opens Add Family Member from empty slots', async ({ page }) => {
+  // Click Elena to open siblings, click again to hide siblings
+  await page.locator('path[data-person-id="elena"]').click();
+  await expect(page.locator('path[data-sibling="true"]')).not.toHaveCount(0);
+  await page.locator('path[data-person-id="elena"]').click();
+  await expect(page.locator('path[data-sibling="true"]')).toHaveCount(0);
+
+  // Navigate to sibling via clickable chip in PersonCard
+  await page.locator('.person-card').getByRole('button', { name: 'Sofia' }).click();
+  await expect(page.getByRole('heading', { name: /Sofia/i })).toBeVisible();
+
+  // Recenter on Sofia and verify breadcrumb trail jumps back to Aria
+  await page.getByRole('button', { name: /Center wheel on Sofia/i }).click();
+  await expect(page.getByRole('heading', { name: /The Lineage of Sofia/i })).toBeVisible();
+  const trail = page.getByRole('navigation', { name: 'Lineage trail' });
+  await expect(trail).toBeVisible();
+  await trail.getByRole('button', { name: 'Aria Hartwell' }).click();
+  await expect(page.getByRole('heading', { name: 'The Lineage of Aria Hartwell' })).toBeVisible();
+
+  // Expand to an ancestor with an empty parent slot and click the empty slot to add a parent
+  await page.locator('path[data-person-id="elena"]').click();
+  await page.locator('path[data-person-id="lucia"]').click();
+  const emptySlot = page.locator('path[data-person-id=""][data-slot="mother"], path[data-person-id=""][data-slot="father"]').first();
+  if (await emptySlot.count()) {
+    await emptySlot.click();
+    await expect(page.getByRole('dialog', { name: 'Add Family Member' })).toBeVisible();
+    await page.keyboard.press('Escape');
+  }
 });

@@ -108,6 +108,8 @@ Browser fixtures use ports 4173, 43174, and 43175.
 | `npm run test:e2e` | Build and run browser tests. |
 | `npm run test:headed` | Run browser tests with visible browser windows. |
 | `npm run benchmark` | Print current synthetic exploration measurements. |
+| `npm run db:backup` / `db:restore` | Create or restore a server-wide PostgreSQL dump. |
+| `npm run db:prune` | Dry-run (or `--apply`) cleanup of old history, receipts, security events, and expired auth rows. |
 | `npm run clean` | Remove generated assets, test reports, and coverage output. |
 | `npm run clean:reports` | Remove reports and coverage while keeping built assets. |
 

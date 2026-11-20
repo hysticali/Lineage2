@@ -74,11 +74,12 @@ async function login(pool, input, ip) {
       window_start = CASE WHEN auth_failures.window_start <= current_timestamp - interval '15 minutes' THEN current_timestamp ELSE auth_failures.window_start END`, [key]);
     throw new InputError('Invalid username or password', 401);
   }
-  await pool.query('DELETE FROM auth_failures WHERE key_hash = $1', [keys[0]]);
+  await pool.query("DELETE FROM auth_failures WHERE key_hash = $1 OR window_start <= current_timestamp - interval '15 minutes'", [keys[0]]);
   return { id: user.id, username: user.username };
 }
 async function issueSession(pool, user) {
   const token = secret();
+  await pool.query('DELETE FROM auth_sessions WHERE expires_at <= current_timestamp');
   await pool.query("INSERT INTO auth_sessions (token_hash, user_id, expires_at) VALUES ($1, $2, current_timestamp + interval '7 days')", [tokenHash(token), user.id]);
   return token;
 }
@@ -134,7 +135,10 @@ async function acceptInvitation(pool, token, actor, input = {}) {
     }
     if (user.username !== invitation.invitee_username) throw new InputError('Sign in as the invited account', 403);
     await client.query(`INSERT INTO tree_memberships (tree_id, user_id, role) VALUES ($1, $2, $3)
-      ON CONFLICT (tree_id, user_id) DO NOTHING`, [invitation.tree_id, user.id, invitation.role]);
+      ON CONFLICT (tree_id, user_id) DO UPDATE SET role = CASE
+        WHEN tree_memberships.role = 'OWNER' OR (tree_memberships.role = 'EDITOR' AND EXCLUDED.role = 'VIEWER') THEN tree_memberships.role
+        ELSE EXCLUDED.role
+      END`, [invitation.tree_id, user.id, invitation.role]);
     await client.query('UPDATE tree_invitations SET accepted_by = $1, accepted_at = current_timestamp WHERE id = $2', [user.id, invitation.id]);
     await audit(client, user.id, invitation.tree_id, 'invitation-accepted', { role: invitation.role });
     return { user, treeId: invitation.tree_id };

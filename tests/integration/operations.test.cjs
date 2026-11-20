@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const net = require('node:net');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const { once } = require('node:events');
 const { randomUUID } = require('node:crypto');
 const request = require('supertest');
@@ -26,7 +26,17 @@ async function contents(pool) {
   return result;
 }
 
-test('server-wide pg_dump and pg_restore recover all application tables and exact attachment bytes into a clean installation', async () => {
+function hasPgTools() {
+  const dumpBin = process.env.PG_DUMP_BIN || 'pg_dump';
+  const restoreBin = process.env.PG_RESTORE_BIN || 'pg_restore';
+  return [dumpBin, restoreBin].every(bin => spawnSync(bin, ['--version'], { stdio: 'ignore' }).status === 0);
+}
+
+test('server-wide pg_dump and pg_restore recover all application tables and exact attachment bytes into a clean installation', async (t) => {
+  if (!hasPgTools() && process.env.REQUIRE_PG_TOOLS !== '1') {
+    t.skip('PostgreSQL 18 client tools (pg_dump/pg_restore) are unavailable; set PG_DUMP_BIN/PG_RESTORE_BIN or REQUIRE_PG_TOOLS=1');
+    return;
+  }
   const db = await startPostgres(), recovered = await startPostgres();
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'lineage-backup-verification-'));
   try {

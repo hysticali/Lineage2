@@ -1,12 +1,11 @@
 import React from 'react';
 import Modal from './Modal';
 import { downloadJson } from './ArchiveControls';
+import { readJson } from './http';
 
 async function api(url, body) {
   const response = await fetch(url, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Database recovery request failed');
-  return data;
+  return readJson(response, 'Database recovery request failed');
 }
 
 export default function DatabaseRecovery({ treeId, onSaved, onRestored, blocked = false }) {

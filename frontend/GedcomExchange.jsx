@@ -1,12 +1,11 @@
 import React from 'react';
 import Modal from './Modal';
 import { downloadJson } from './ArchiveControls';
+import { readJson } from './http';
 
 async function api(url, body) {
   const response = await fetch(url, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'GEDCOM request failed');
-  return data;
+  return readJson(response, 'GEDCOM request failed');
 }
 function downloadGedcom(source) {
   const url = URL.createObjectURL(new Blob([source], { type: 'text/vnd.familysearch.gedcom;charset=utf-8' }));

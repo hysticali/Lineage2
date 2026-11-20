@@ -1,5 +1,6 @@
 import React from 'react';
 import Modal from './Modal';
+import { readJson } from './http';
 
 const kinds = { name: 'name', event: 'event or attribute', note: 'note', source: 'source', citation: 'citation', media: 'attachment' };
 const fieldsByKind = {
@@ -25,8 +26,7 @@ export default function PersonRecords({ treeId, personId, personName, onSaved, o
     setBusy(true); setError('');
     try {
       const response = await fetch(endpoint);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Could not load records');
+      const data = await readJson(response, 'Could not load records');
       setRecords(data); requestId.current = crypto.randomUUID();
     } catch (error) { setError(error.message); }
     finally { setBusy(false); }
@@ -78,8 +78,7 @@ export default function PersonRecords({ treeId, personId, personName, onSaved, o
         requestId: requestId.current, expectedRevision: records.revision,
         kind: editing.kind, recordId: editing.id, fields,
       }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Save failed. Your form is preserved.');
+      const data = await readJson(response, 'Save failed. Your form is preserved');
       setRecords(data.records); onSaved(data.archive); setEditing(null); setStatus('Saved in database');
     } catch (error) { setError(error.message); setStatus('Not saved — your form is preserved'); }
     finally { setBusy(false); }

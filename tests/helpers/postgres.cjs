@@ -15,22 +15,33 @@ async function availablePort() {
 
 async function startPostgres() {
   const { default: EmbeddedPostgres } = await import('embedded-postgres');
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'lineage-postgres-test-'));
-  const port = await availablePort();
-  const password = randomUUID();
-  const messages = [];
-  const postgres = new EmbeddedPostgres({
-    databaseDir: path.join(directory, 'data'), user: 'postgres', password, port,
-    persistent: true,
-    postgresFlags: ['-h', '127.0.0.1', '-k', directory],
-    onLog: (message) => messages.push(message),
-    onError: (message) => messages.push(String(message)),
-  });
-  try {
-    await postgres.initialise();
-    await postgres.start();
-  } catch (error) {
-    throw new Error(`Could not start test PostgreSQL: ${error?.message || messages.join('\n')}`);
+  let directory, postgres, port, password, messages;
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    directory = await fs.mkdtemp(path.join(os.tmpdir(), 'lineage-postgres-test-'));
+    port = await availablePort();
+    password = randomUUID();
+    messages = [];
+    postgres = new EmbeddedPostgres({
+      databaseDir: path.join(directory, 'data'), user: 'postgres', password, port,
+      persistent: true,
+      postgresFlags: ['-h', '127.0.0.1', '-k', directory],
+      onLog: (message) => messages.push(message),
+      onError: (message) => messages.push(String(message)),
+    });
+    try {
+      await postgres.initialise();
+      await postgres.start();
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+      await postgres.stop().catch(() => {});
+      await fs.rm(directory, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+  if (lastError) {
+    throw new Error(`Could not start test PostgreSQL: ${lastError?.message || ''}\n${messages.join('\n')}`.trim());
   }
   const connectionString = `postgresql://postgres:${password}@127.0.0.1:${port}/postgres`;
   let pool;
