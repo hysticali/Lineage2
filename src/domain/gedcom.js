@@ -20,8 +20,12 @@ function decodeValue(raw, line) {
   return { value: raw, pointer: null };
 }
 
+function utf8ByteLength(value) {
+  return typeof Buffer === 'function' ? Buffer.byteLength(value, 'utf8') : new TextEncoder().encode(value).byteLength;
+}
+
 function parseGedcom(source) {
-  if (typeof source !== 'string' || Buffer.byteLength(source, 'utf8') > MAX_BYTES) throw new GedcomError('GEDCOM must be UTF-8 text of at most 20 MB');
+  if (typeof source !== 'string' || utf8ByteLength(source) > MAX_BYTES) throw new GedcomError('GEDCOM must be UTF-8 text of at most 20 MB');
   if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\ufffe\uffff]/u.test(source) || /[\ud800-\udfff]/u.test(source)) throw new GedcomError('GEDCOM contains prohibited control characters or invalid Unicode');
   const lines = source.replace(/^\uFEFF/, '').split(/\r\n|\r|\n/);
   if (lines.at(-1) === '') lines.pop();

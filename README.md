@@ -25,6 +25,12 @@ npm run build
 python3 -m http.server 4173 --bind 127.0.0.1
 ```
 
+To build a clean static bundle for **Cloudflare Pages** (with security headers in `dist/_headers` and direct static-mode loading):
+
+- **Build command:** `npm run build:pages`
+- **Build output directory:** `dist`
+- **Environment variable:** `NODE_VERSION=22`
+
 Static edits are saved in the browser. Database edits are saved to PostgreSQL;
 private-mode browser state is held in memory. Switching ancestor/descendant
 direction keeps the selected person centered with their details open.

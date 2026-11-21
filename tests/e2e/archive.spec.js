@@ -153,3 +153,65 @@ test('storage failures are visible and block destructive restores', async ({ pag
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Could not save a recovery copy');
   await expect(page.locator('header')).toContainText('45 people');
 });
+
+test('static mode lets users start a new tree and import/export GEDCOM 7.0 in the browser', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'The Lineage of Aria Hartwell' })).toBeVisible();
+
+  // Start a new blank family tree
+  const drafts = await openTools(page, 'Browser drafts');
+  await drafts.getByRole('button', { name: 'Start new tree', exact: true }).click();
+  const modal = page.getByRole('dialog', { name: 'Start a new family tree', exact: true });
+  await modal.getByLabel('Starting person’s full name *').fill('Jordan Rivera');
+  await modal.getByLabel('Birth date').fill('1988');
+  await modal.getByRole('button', { name: 'Create new tree', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'The Lineage of Jordan Rivera' })).toBeVisible();
+  await expect(page.locator('header')).toContainText('1 people');
+
+  // Export GEDCOM from browser mode and verify download
+  const exchange = await openTools(page, 'Import and export');
+  await exchange.getByRole('button', { name: 'Export GEDCOM', exact: true }).click();
+  const exportDialog = page.getByRole('dialog', { name: 'GEDCOM export preview', exact: true });
+  await expect(exportDialog).toContainText('1 people');
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    exportDialog.getByRole('button', { name: 'Download GEDCOM (.ged)', exact: true }).click(),
+  ]);
+  const exportedPath = await download.path();
+  const fs = require('node:fs');
+  const gedText = fs.readFileSync(exportedPath, 'utf8');
+  expect(gedText).toContain('Jordan /Rivera/');
+
+  // Import a multi-person GEDCOM 7.0 file into browser mode
+  const sampleGed = [
+    '0 HEAD',
+    '1 GEDC',
+    '2 VERS 7.0',
+    '0 @I1@ INDI',
+    '1 NAME Morgan /Lee/',
+    '1 SEX F',
+    '1 BIRT',
+    '2 DATE 1992',
+    '2 PLAC Seattle, USA',
+    '1 FAMC @F1@',
+    '0 @I2@ INDI',
+    '1 NAME Pat /Lee/',
+    '1 SEX F',
+    '1 FAMS @F1@',
+    '0 @F1@ FAM',
+    '1 WIFE @I2@',
+    '1 CHIL @I1@',
+    '0 TRLR',
+    '',
+  ].join('\n');
+  await exchange.getByLabel('Import GEDCOM', { exact: true }).setInputFiles({
+    name: 'morgan.ged',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(sampleGed, 'utf8'),
+  });
+  const importDialog = page.getByRole('dialog', { name: 'GEDCOM import preview', exact: true });
+  await expect(importDialog).toContainText('2 people · 1 families');
+  await importDialog.getByRole('button', { name: 'Import into browser', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'The Lineage of Morgan Lee' })).toBeVisible();
+  await expect(page.locator('header')).toContainText('2 people');
+});

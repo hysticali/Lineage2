@@ -15,6 +15,7 @@
     "test:e2e": "playwright test",
     "test:headed": "playwright test --headed",
     "build": "node scripts/build.js",
+    "build:pages": "node scripts/build-pages.js",
     "clean": "node scripts/clean.js",
     "clean:reports": "node scripts/clean.js --reports-only",
     "prestart": "npm run build",

@@ -14,10 +14,11 @@ export function downloadJson(value, filename = 'rootline-backup.json') {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export default function ArchiveControls({ archive, source, saveStatus, notice, recoveries, onRestore, onDiscard }) {
+export default function ArchiveControls({ archive, source, saveStatus, notice, recoveries, onRestore, onDiscard, onStartNew }) {
   const [preview, setPreview] = React.useState(null);
   const [showDiscard, setShowDiscard] = React.useState(false);
   const [showRecovery, setShowRecovery] = React.useState(false);
+  const [showNewTree, setShowNewTree] = React.useState(false);
   const [error, setError] = React.useState('');
   const [message, setMessage] = React.useState('');
   const tree = { id: source.treeId, name: source.treeName };
@@ -44,10 +45,30 @@ export default function ArchiveControls({ archive, source, saveStatus, notice, r
       setMessage('Local edits discarded. A recovery copy was saved.');
     } catch (error) { setError(error.message); }
   }
+  function createNewTree(event) {
+    event.preventDefault();
+    const fields = Object.fromEntries(new FormData(event.currentTarget));
+    const name = String(fields.name || '').trim();
+    if (!name) { setError('Please enter a name for the starting person.'); return; }
+    const id = `p_${crypto.randomUUID().slice(0, 8)}`;
+    const person = {
+      id,
+      name,
+      ...(fields.gender && { gender: fields.gender }),
+      ...(String(fields.birth || '').trim() && { birth: String(fields.birth).trim() }),
+      ...(String(fields.birthplace || '').trim() && { birthplace: String(fields.birthplace).trim() }),
+    };
+    try {
+      onStartNew({ rootId: id, family: { [id]: person } });
+      setShowNewTree(false); setError('');
+      setMessage(`Started a new family tree centered on ${name}. Your previous tree is saved in Recovery copies.`);
+    } catch (err) { setError(err.message); }
+  }
   return <section className="archive-controls" aria-label="Archive tools">
     <div className="toolbar">
-      <div><strong>{source.treeName}</strong><p>{source.mode === 'database' ? 'Database archive' : 'Sample archive'} · <span role="status">{saveStatus}</span></p></div>
+      <div><strong>{source.treeName}</strong><p>{source.mode === 'database' ? 'Database archive' : 'Browser archive'} · <span role="status">{saveStatus}</span></p></div>
       <div className="toolbar">
+        {source.mode !== 'database' && onStartNew && <button onClick={() => { setError(''); setShowNewTree(true); }}>Start new tree</button>}
         <button onClick={() => {
           try { downloadJson(createBackup(archive, tree)); setError(''); }
           catch (error) { setError(error.message); }
@@ -59,7 +80,28 @@ export default function ArchiveControls({ archive, source, saveStatus, notice, r
     </div>
     {notice && <p className="notice">{notice}</p>}
     {message && <p role="status">{message}</p>}
-    {error && !preview && !showDiscard && !showRecovery && <p role="alert">{error}</p>}
+    {error && !preview && !showDiscard && !showRecovery && !showNewTree && <p role="alert">{error}</p>}
+    {showNewTree && <Modal title="Start a new family tree" onClose={() => { setShowNewTree(false); setError(''); }}>
+      <p>Start fresh with your own starting person. Your current archive will be saved automatically in Recovery copies first.</p>
+      <form onSubmit={createNewTree}>
+        <fieldset className="person-fields">
+          <label>Starting person’s full name *<input name="name" required maxLength={500} placeholder="e.g. Jordan Rivera" /></label>
+          <label>Gender<select name="gender" defaultValue="U">
+            <option value="U">Unknown / Unspecified</option>
+            <option value="F">Female</option>
+            <option value="M">Male</option>
+            <option value="X">Non-binary</option>
+          </select></label>
+          <label>Birth date<input name="birth" placeholder="e.g. 1988 or ABT 1988" /></label>
+          <label>Birthplace<input name="birthplace" placeholder="City, Country" /></label>
+          {error && <p role="alert">{error}</p>}
+          <div className="toolbar">
+            <button type="submit">Create new tree</button>
+            <button type="button" onClick={() => { setShowNewTree(false); setError(''); }}>Cancel</button>
+          </div>
+        </fieldset>
+      </form>
+    </Modal>}
     {showRecovery && !preview && <Modal title="Recovery copies" onClose={() => setShowRecovery(false)}>
       <p>Copies are kept in this browser. Download a copy to keep it outside browser storage.</p>
       {recoveries.length === 0 && <p>No recovery copies yet.</p>}

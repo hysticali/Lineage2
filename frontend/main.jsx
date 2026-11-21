@@ -13,6 +13,7 @@ import { PeopleDrawer, ToolsDrawer, useMobileLayout } from './WorkspacePanels';
 import PersonRecords from './PersonRecords';
 import DatabaseRecovery from './DatabaseRecovery';
 import GedcomExchange from './GedcomExchange';
+import BrowserGedcom from './BrowserGedcom';
 import DuplicateReview from './DuplicateReview';
 import AccessBoundary, { PrivacyEditor } from './Access';
 import Sharing from './Sharing';
@@ -429,15 +430,18 @@ function App({ source, trees, onSelectTree, accountControl }) {
     ...(source.mode === 'database' ? [{ id: 'exchange', title: 'Import and export', description: 'GEDCOM files and original import sources', content: <>
       {source.privacyNotice && <p className="notice">{source.privacyNotice}</p>}
       <GedcomExchange privateMode={privateMode} treeId={source.treeId} shareToken={source.shareToken} readOnly={!canEdit} draft={draft} onImported={onSelectTree} onSaved={acceptToolServer} />
-    </> }] : []),
+    </> }] : [{ id: 'exchange', title: 'Import and export', description: 'Import or export GEDCOM 7.0 (.ged) files in this browser', content: (
+      <BrowserGedcom archive={archive} onImportArchive={(next, reason) => { replaceArchive(next, reason); setPanel(null); }} />
+    ) }]),
     ...(canEdit && source.mode === 'database' ? [{ id: 'backups', title: 'Backups and history', description: 'Full-tree backup, restore, and edit history', content: <DatabaseRecovery treeId={source.treeId} blocked={draft} onSaved={acceptToolServer} onRestored={onSelectTree} /> },
       { id: 'research', title: 'Research', description: 'Add a person or review possible duplicates', content: <>
         <button onClick={() => { setPanel(null); setAddCtx({ type: 'person' }); }}>Add person</button>
         <DuplicateReview treeId={source.treeId} archive={archive} selectedId={selectedPid} blocked={draft} onSaved={acceptToolServer} />
       </> }] : []),
     ...(source.permissions?.canManage ? [{ id: 'sharing', title: 'Sharing', description: 'Members, invitations, and read-only links', content: <Sharing treeId={source.treeId} /> }] : []),
-    ...(canEdit ? [{ id: 'browser', title: 'Browser drafts', description: source.mode === 'database' ? 'Local drafts, migration, and projection recovery' : 'Backup and recover this browser archive', content: <>
+    ...(canEdit ? [{ id: 'browser', title: 'Browser drafts', description: source.mode === 'database' ? 'Local drafts, migration, and projection recovery' : 'Start a new tree, or back up and restore your browser archive', content: <>
       <ArchiveControls archive={archive} source={source} saveStatus={status} notice={local.notice} recoveries={recoveries}
+        onStartNew={source.mode !== 'database' ? (next => { replaceArchive(next, 'Before starting new family tree'); setPanel(null); }) : undefined}
         onRestore={next => { replaceArchive(next, 'Before backup restore'); setPanel(null); }}
         onDiscard={() => { replaceArchive(loadedSource.current, 'Before discarding local edits'); setPanel(null); }} />
       {source.mode === 'database' && draft && <LocalMigration treeId={source.treeId} archive={archive}

@@ -91,6 +91,11 @@ export default function AccessBoundary({ children }) {
   const params = new URLSearchParams(location.search), invite = params.get('invite'), share = params.get('share');
   const reload = React.useCallback(() => { setSession(null); setError(''); setEpoch(n => n + 1); }, []);
   React.useEffect(() => {
+    const lineageMode = document.querySelector('meta[name="lineage-mode"]')?.content;
+    if (lineageMode === 'static') {
+      setSession({ mode: 'local', user: null });
+      return;
+    }
     if (sessionMode === 'local') return;
     let active = true;
     let controller = null;
@@ -99,7 +104,7 @@ export default function AccessBoundary({ children }) {
       controller = new AbortController();
       try {
         const response = await fetch('/api/auth/session', { signal: controller.signal });
-        const staticPage = document.querySelector('meta[name="lineage-mode"]')?.content !== 'database';
+        const staticPage = lineageMode !== 'database';
         const next = staticPage && response.status === 404 && !(response.headers.get('content-type') || '').includes('application/json')
           ? { mode: 'local', user: null }
           : await readJson(response, 'Account service is unavailable');

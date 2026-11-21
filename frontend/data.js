@@ -3,11 +3,18 @@ import { readJson } from './http';
 const { validateArchive } = archiveTools;
 
 export async function loadFamilyData(treeId = '', options = {}) {
+  const lineageMode = document.querySelector('meta[name="lineage-mode"]')?.content;
+  if (!treeId && lineageMode === 'static') {
+    const sample = await fetch('/family-data.json', { signal: options.signal });
+    const data = await readJson(sample, 'Sample archive could not be loaded');
+    validateArchive(data);
+    return { ...data, mode: 'static', treeId: 'static:family-data.json', treeName: 'Sample family archive' };
+  }
   const response = await fetch(treeId ? `/api/trees/${encodeURIComponent(treeId)}/family-data` : '/api/family-data', { headers: { Accept: 'application/json' }, signal: options.signal });
   const type = response.headers.get('content-type') || '';
   // A plain static server returns an HTML 404 for /api. JSON errors indicate a
   // real backend and must never be treated as permission to show sample data.
-  const backendPage = document.querySelector('meta[name="lineage-mode"]')?.content === 'database';
+  const backendPage = lineageMode === 'database';
   if (!treeId && !backendPage && response.status === 404 && !type.includes('application/json')) {
     const sample = await fetch('/family-data.json', { signal: options.signal });
     const data = await readJson(sample, 'Sample archive could not be loaded');
