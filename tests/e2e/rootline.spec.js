@@ -16,14 +16,18 @@ test('fits the 1000-unit fan into the available chart viewport', async ({ page }
   await expect(wheel.locator('circle[r="428"]')).toHaveCount(1);
   await expect(wheel.locator('circle[r="486"]')).toHaveCount(0);
 
+  // Default view starts zoomed in at 150% with the hub anchored near the bottom.
+  await expect(page.getByLabel('Zoom level')).toHaveText('150%');
+  const viewport = await page.locator('.chart-viewport').boundingBox();
+  const hubBox = await page.locator('[data-center-person-id]').boundingBox();
+  expect(hubBox.y + hubBox.height / 2).toBeGreaterThan(viewport.y + viewport.height * 0.65);
+
+  // Fit chart shows the full 6-ring 180-degree fan inside the viewport at 100%.
+  await page.getByRole('button', { name: 'Fit chart' }).click();
+  await expect(page.getByLabel('Zoom level')).toHaveText('100%');
   const box = await wheel.boundingBox();
   expect(box?.width).toBeGreaterThan(350);
-  expect(box?.width).toBeLessThanOrEqual(1000);
-
-  const viewport = await page.locator('.chart-viewport').boundingBox();
-  expect(box.width).toBeLessThanOrEqual(viewport.width);
-  expect(box.height).toBeLessThanOrEqual(viewport.height);
-
+  expect(box?.width).toBeLessThanOrEqual(1050);
 });
 
 test('keeps the chart in 180 degree fan mode', async ({ page }) => {

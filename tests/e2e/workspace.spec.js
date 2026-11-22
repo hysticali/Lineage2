@@ -5,7 +5,7 @@ async function geometry(page) {
   return page.locator('.chart-viewport').evaluate(viewport => {
     const svg = viewport.querySelector('svg'), matrix = svg.getScreenCTM(), box = viewport.getBoundingClientRect();
     const hub = new DOMPoint(500, 500).matrixTransform(matrix);
-    const world = new DOMPoint(box.x + box.width / 2, box.y + box.height / 2).matrixTransform(matrix.inverse());
+    const world = new DOMPoint(box.x + box.width / 2, box.y + box.height * 0.78).matrixTransform(matrix.inverse());
     return { hub: { x: hub.x, y: hub.y }, world: { x: world.x, y: world.y }, viewport: { x: box.x, y: box.y, width: box.width, height: box.height }, documentHeight: document.documentElement.scrollHeight, documentWidth: document.documentElement.scrollWidth, scrollY };
   });
 }
@@ -19,7 +19,13 @@ for (const [device, viewport] of [['desktop', { width: 1440, height: 900 }], ['m
     await page.setViewportSize(viewport);
     await page.goto('/?person=elena&selected=elena');
     await expect(page.getByRole('heading', { name: 'The Lineage of Elena Vasquez' })).toBeVisible();
+    await expect(page.getByLabel('Zoom level')).toHaveText('150%');
     const initial = await geometry(page);
+    expect(initial.hub.y).toBeGreaterThan(initial.viewport.y + initial.viewport.height * 0.65);
+    await page.screenshot({ path: `/tmp/lineage-workspace-${device}-default.png`, fullPage: true });
+    await page.getByRole('button', { name: 'Fit chart' }).click();
+    await expect(page.getByLabel('Zoom level')).toHaveText('100%');
+    closePoint((await geometry(page)).hub, initial.hub);
     for (let percent = 125; percent <= 300; percent += 25) {
       await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
       await expect(page.getByLabel('Zoom level')).toHaveText(`${percent}%`);
@@ -43,7 +49,8 @@ for (const [device, viewport] of [['desktop', { width: 1440, height: 900 }], ['m
 test('pan preserves the viewed world point through zoom and resize; Center and Fit have distinct effects', async ({ page }) => {
   await page.goto('/?selected=elena');
   await expect(page.getByRole('heading', { name: 'The Lineage of Aria Hartwell' })).toBeVisible();
-  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  for (let i = 0; i < 2; i++) await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  await expect(page.getByLabel('Zoom level')).toHaveText('200%');
   const before = await geometry(page);
   await page.mouse.move(before.hub.x, before.hub.y);
   await page.mouse.down(); await page.mouse.move(before.hub.x + 80, before.hub.y + 45, { steps: 8 }); await page.mouse.up();

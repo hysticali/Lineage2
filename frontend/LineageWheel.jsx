@@ -1,6 +1,8 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import wheel from "../src/domain/wheel";
 import format from "./format";
+import { ChartHudContext } from "./ChartViewport";
 
 const {
   SIZE,
@@ -36,6 +38,7 @@ export default function LineageWheel({
 }) {
   const [hoverKey, setHoverKey] = React.useState(null);
   const [hoverSpouseId, setHoverSpouseId] = React.useState(null);
+  const hudHost = React.useContext(ChartHudContext);
   const center = family[centerId];
   const spouses = getSpouses(centerId, family);
   const isAncestorView = viewDirection === "ancestors";
@@ -317,7 +320,7 @@ export default function LineageWheel({
                     y={w.labelPos.y}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fontSize={w.generation <= 1 ? 15 : w.generation <= 2 ? 12 : 10}
+                    fontSize={w.generation <= 1 ? 15.5 : w.generation <= 2 ? 12.5 : w.generation === 3 ? 11 : 10}
                     fontWeight={w.isSibling ? 500 : 600}
                     fill={w.isSibling ? "hsl(40, 25%, 86%)" : "hsl(40, 30%, 97%)"}
                     transform={`rotate(${labelRot} ${w.labelPos.x} ${w.labelPos.y})`}
@@ -330,7 +333,7 @@ export default function LineageWheel({
                       <tspan
                         x={w.labelPos.x}
                         dy="1.15em"
-                        fontSize={w.generation <= 2 ? 9.5 : 8}
+                        fontSize={w.generation <= 2 ? 10 : 8.5}
                         fontWeight={400}
                         opacity={0.88}
                       >
@@ -573,49 +576,54 @@ export default function LineageWheel({
         </g>
       </svg>
 
-      {!isAncestorView && (
-        <div className="wheel-direction-badge" aria-hidden="true">
-          Descendant line
-        </div>
-      )}
+      {hudHost ? createPortal(
+        <>
+          {!isAncestorView && (
+            <div className="wheel-direction-badge">
+              Descendant line
+            </div>
+          )}
 
-      {/* Floating hover preview HUD or sibling hint */}
-      {hoveredWedge?.person ? (
-        <div className="wheel-tooltip glass" aria-hidden="true">
-          <strong>{hoveredWedge.person.name}</strong>
-          {formatLifespan(hoveredWedge.person.birth, hoveredWedge.person.death) && (
-            <span className="wheel-tooltip-dates">
-              {formatLifespan(hoveredWedge.person.birth, hoveredWedge.person.death)}
-            </span>
-          )}
-          <span className="wheel-tooltip-meta">
-            {generationLabel(hoveredWedge.generation, viewDirection, hoveredWedge.lineageSide, hoveredWedge.isSibling)}
-            {hoveredWedge.hasMore ? " · Has more generations" : ""}
-          </span>
-        </div>
-      ) : hoveredWedge && canEdit && hoveredWedge.parentChildId ? (
-        <div className="wheel-tooltip glass" aria-hidden="true">
-          <strong>Add {hoveredWedge.slot}</strong>
-          <span className="wheel-tooltip-meta">
-            of {family[hoveredWedge.parentChildId]?.name || "person"} · Click to open form
-          </span>
-        </div>
-      ) : hoveredSpouse ? (
-        <div className="wheel-tooltip glass" aria-hidden="true">
-          <strong>{hoveredSpouse.name}</strong>
-          {formatLifespan(hoveredSpouse.birth, hoveredSpouse.death) && (
-            <span className="wheel-tooltip-dates">
-              {formatLifespan(hoveredSpouse.birth, hoveredSpouse.death)}
-            </span>
-          )}
-          <span className="wheel-tooltip-meta">Spouse · Click to inspect · Double-click to center</span>
-        </div>
-      ) : isAncestorView && sibAnchorPid && sibAnchorPid !== centerId ? (
-        <div className="wheel-sibling-hint scaleIn" aria-hidden="true">
-          <span className="wheel-sibling-dash" />
-          Siblings shown with dashed border · click again to hide
-          <span className="wheel-sibling-dash" />
-        </div>
+          {/* Floating hover preview HUD or sibling hint */}
+          {hoveredWedge?.person ? (
+            <div className="wheel-tooltip glass">
+              <strong>{hoveredWedge.person.name}</strong>
+              {formatLifespan(hoveredWedge.person.birth, hoveredWedge.person.death) && (
+                <span className="wheel-tooltip-dates">
+                  {formatLifespan(hoveredWedge.person.birth, hoveredWedge.person.death)}
+                </span>
+              )}
+              <span className="wheel-tooltip-meta">
+                {generationLabel(hoveredWedge.generation, viewDirection, hoveredWedge.lineageSide, hoveredWedge.isSibling)}
+                {hoveredWedge.hasMore ? " · Has more generations" : ""}
+              </span>
+            </div>
+          ) : hoveredWedge && canEdit && hoveredWedge.parentChildId ? (
+            <div className="wheel-tooltip glass">
+              <strong>Add {hoveredWedge.slot}</strong>
+              <span className="wheel-tooltip-meta">
+                of {family[hoveredWedge.parentChildId]?.name || "person"} · Click to open form
+              </span>
+            </div>
+          ) : hoveredSpouse ? (
+            <div className="wheel-tooltip glass">
+              <strong>{hoveredSpouse.name}</strong>
+              {formatLifespan(hoveredSpouse.birth, hoveredSpouse.death) && (
+                <span className="wheel-tooltip-dates">
+                  {formatLifespan(hoveredSpouse.birth, hoveredSpouse.death)}
+                </span>
+              )}
+              <span className="wheel-tooltip-meta">Spouse · Click to inspect · Double-click to center</span>
+            </div>
+          ) : isAncestorView && sibAnchorPid && sibAnchorPid !== centerId ? (
+            <div className="wheel-sibling-hint scaleIn">
+              <span className="wheel-sibling-dash" />
+              Siblings shown with dashed border · click again to hide
+              <span className="wheel-sibling-dash" />
+            </div>
+          ) : null}
+        </>,
+        hudHost,
       ) : null}
     </div>
   );

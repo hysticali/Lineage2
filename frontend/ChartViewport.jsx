@@ -1,8 +1,11 @@
 import React from 'react';
 
+export const HUB_ANCHOR_Y = 0.78;
+export const ChartHudContext = React.createContext(null);
+
 function clampPan(next, zoom) {
   if (zoom <= 1) return { x: 0, y: 0 };
-  const limit = Math.max(0, 500 * (1 - 1 / zoom) + 120);
+  const limit = Math.max(0, 500 * (1 - 1 / zoom) + 180);
   return {
     x: Math.max(-limit, Math.min(limit, next.x)),
     y: Math.max(-limit, Math.min(limit, next.y)),
@@ -11,6 +14,7 @@ function clampPan(next, zoom) {
 
 export default function ChartViewport({ zoom, onZoom, centerKey, children, onBack, canGoBack, onReset }) {
   const viewport = React.useRef(null);
+  const [hudHost, setHudHost] = React.useState(null);
   const [size, setSize] = React.useState(0);
   // Offsets are SVG units, so zoom and resizing retain the viewed world point.
   const [pan, setPan] = React.useState({ x: 0, y: 0 });
@@ -23,7 +27,9 @@ export default function ChartViewport({ zoom, onZoom, centerKey, children, onBac
 
   React.useLayoutEffect(() => {
     const element = viewport.current;
-    const measure = () => setSize(Math.min(element.clientWidth, element.clientHeight, 1000));
+    // The 180-degree fan spans ~940 units wide and ~640 units tall (hub near bottom),
+    // so sizing against the fan aspect ratio eliminates unused space below the hub.
+    const measure = () => setSize(Math.min(element.clientWidth / 0.96, element.clientHeight / 0.68, 1000));
     measure();
     const observer = new ResizeObserver(measure); observer.observe(element);
     return () => observer.disconnect();
@@ -96,9 +102,12 @@ export default function ChartViewport({ zoom, onZoom, centerKey, children, onBac
       role="region" aria-label="Family wheel" tabIndex={0} onKeyDown={keyboard}
       onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end}
       onClickCapture={event => { if (suppressClick.current && event.detail) { event.preventDefault(); event.stopPropagation(); suppressClick.current = false; } }}>
-      <div className="chart-stage" style={{ width: size * zoom, height: size * zoom, marginLeft: pan.x * scale, marginTop: pan.y * scale }}>
-        {children}
-      </div>
+      <ChartHudContext.Provider value={hudHost}>
+        <div className="chart-stage" style={{ width: size * zoom, height: size * zoom, marginLeft: pan.x * scale, marginTop: pan.y * scale }}>
+          {children}
+        </div>
+      </ChartHudContext.Provider>
+      <div className="chart-hud" ref={setHudHost} aria-hidden="true" />
     </div>
     <div className="chart-toolbar" role="toolbar" aria-label="Chart navigation and zoom">
       <button onClick={onBack} disabled={!canGoBack} aria-label="Return to previous center person" title="Return to previous center person"><span aria-hidden="true">←</span><span className="control-label"> Back</span></button>
@@ -109,7 +118,7 @@ export default function ChartViewport({ zoom, onZoom, centerKey, children, onBac
         <button onClick={() => onZoom(Math.min(3, zoom + .25))} disabled={zoom >= 3} aria-label="Zoom in" title="Zoom in (+)">+</button>
       </div>
       <button onClick={fit} aria-label="Fit chart" title="Fit the entire wheel (0)">Fit<span className="control-label"> chart</span></button>
-      <button onClick={() => { fit(); onReset(); }} aria-label="Reset view" title="Reset navigation; keep family edits"><span aria-hidden="true">↺</span><span className="control-label"> Reset view</span></button>
+      <button onClick={() => { center(); onReset(); }} aria-label="Reset view" title="Reset navigation; keep family edits"><span aria-hidden="true">↺</span><span className="control-label"> Reset view</span></button>
     </div>
   </div>;
 }

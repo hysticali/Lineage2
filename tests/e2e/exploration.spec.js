@@ -50,6 +50,9 @@ test('mobile zoom stays inside the chart and Fit restores its size', async ({ pa
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/?person=elena&selected=elena&view=descendants');
   const svg = page.locator('svg[viewBox="0 0 1000 1000"]');
+  await expect(page.getByLabel('Zoom level')).toHaveText('150%');
+  await page.getByRole('button', { name: 'Fit chart' }).click();
+  await expect(page.getByLabel('Zoom level')).toHaveText('100%');
   const original = await svg.boundingBox();
   await page.getByRole('button', { name: 'Zoom in' }).click();
   await page.getByRole('button', { name: 'Zoom in' }).click();

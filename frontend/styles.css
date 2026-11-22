@@ -558,8 +558,15 @@ svg [role="button"]:focus-visible > rect {
 .chart-stage {
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: 78%;
   transform: translate(-50%, -50%);
+}
+
+.chart-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
 }
 
 .lineage-wheel {
@@ -639,7 +646,7 @@ svg [role="button"]:focus-visible > rect {
 
 .wheel-tooltip {
   position: absolute;
-  bottom: 12px;
+  top: 10px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -654,7 +661,7 @@ svg [role="button"]:focus-visible > rect {
   font-size: 12px;
   pointer-events: none;
   box-shadow: 0 10px 28px hsl(0 0% 0% / 0.5);
-  z-index: 5;
+  z-index: 6;
 }
 
 .wheel-tooltip strong {
@@ -675,7 +682,7 @@ svg [role="button"]:focus-visible > rect {
 
 .wheel-sibling-hint {
   position: absolute;
-  bottom: 10px;
+  top: 10px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 11px;

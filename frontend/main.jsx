@@ -35,6 +35,8 @@ import Legend from "./Legend";
 import InfoPanel from "./InfoPanel";
 import ErrorBoundary from "./ErrorBoundary";
 
+const DEFAULT_ZOOM = 1.5;
+
 // ─── APP ──────────────────────────────────────────────────────────────────────
 function App({ source, trees, onSelectTree, accountControl }) {
   const canEdit = source.permissions?.canEdit !== false;
@@ -55,7 +57,7 @@ function App({ source, trees, onSelectTree, accountControl }) {
   const navigation = new URLSearchParams(location.search);
   const [aliases, setAliases] = React.useState(source.aliases || {});
   const [centerId, setCenterId] = React.useState(() => resolveNavigationPerson(family, source.aliases, navigation.get('person'), resolveNavigationPerson(family, source.aliases, local.centerId, rootId)));
-  const [zoom, setZoom] = React.useState(1);
+  const [zoom, setZoom] = React.useState(DEFAULT_ZOOM);
   const [viewReset, setViewReset] = React.useState(0);
   const [panel, setPanel] = React.useState(null);
   const [toolGroup, setToolGroup] = React.useState(null);
@@ -285,7 +287,7 @@ function App({ source, trees, onSelectTree, accountControl }) {
   }
 
   function handleReset() {
-    setZoom(1);
+    setZoom(DEFAULT_ZOOM);
     setViewReset(value => value + 1);
     setCenterId(rootId);
     setExpanded(new Set());
