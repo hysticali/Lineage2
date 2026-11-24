@@ -15,6 +15,8 @@ const {
   wedgePath,
   arcPath,
   genColor,
+  getSiblings,
+  getChildren,
   getSpouses,
   fanGeometry,
   buildWheel,
@@ -38,6 +40,8 @@ export default function LineageWheel({
 }) {
   const [hoverKey, setHoverKey] = React.useState(null);
   const [hoverSpouseId, setHoverSpouseId] = React.useState(null);
+  const [focusKey, setFocusKey] = React.useState(null);
+  const [focusSpouseId, setFocusSpouseId] = React.useState(null);
   const hudHost = React.useContext(ChartHudContext);
   const center = family[centerId];
   const spouses = getSpouses(centerId, family);
@@ -46,6 +50,8 @@ export default function LineageWheel({
   React.useEffect(() => {
     setHoverKey(null);
     setHoverSpouseId(null);
+    setFocusKey(null);
+    setFocusSpouseId(null);
   }, [centerId, viewDirection]);
 
   // When a sibling is individually selected it becomes dominant; otherwise no dominant
@@ -92,6 +98,11 @@ export default function LineageWheel({
     () => (hoverKey ? wedges.find((w) => w.key === hoverKey) || null : null),
     [wedges, hoverKey],
   );
+  const focusedWedge = React.useMemo(
+    () => (focusKey ? wedges.find((w) => w.key === focusKey) || null : null),
+    [wedges, focusKey],
+  );
+  const previewWedge = hoveredWedge || focusedWedge;
   const selectedWedge = React.useMemo(
     () => (selectedPid ? wedges.find((w) => w.person?.id === selectedPid) || null : null),
     [wedges, selectedPid],
@@ -120,8 +131,15 @@ export default function LineageWheel({
   const initials = getInitials(center?.name);
   const centerLifespan = formatLifespan(center?.birth, center?.death);
   const { startAngle, sweep } = fanGeometry();
-  const maternalLabelPos = polar(CX, CY, CENTER_R + MAX_GEN * RW + 22, startAngle + 0.14);
-  const paternalLabelPos = polar(CX, CY, CENTER_R + MAX_GEN * RW + 22, startAngle + sweep - 0.14);
+  const maxGen = Math.max(2, ...wedges.filter((w) => w.person).map((w) => w.generation));
+  const sideR = CENTER_R + Math.min(maxGen, MAX_GEN) * RW + 24;
+  const maternalLabelPos = polar(CX, CY, sideR, startAngle + 0.14);
+  const paternalLabelPos = polar(CX, CY, sideR, startAngle + sweep - 0.14);
+
+  const hasVisibleSiblings = React.useMemo(
+    () => wedges.some((w) => w.isSibling),
+    [wedges],
+  );
 
   function labelRotation(w, wheelRot) {
     const mid = (w.startAngle + w.endAngle) / 2;
@@ -155,16 +173,65 @@ export default function LineageWheel({
   }
 
   const hoveredSpouse = hoverSpouseId ? spouses.find((s) => s.id === hoverSpouseId) || null : null;
+  const focusedSpouse = focusSpouseId ? spouses.find((s) => s.id === focusSpouseId) || null : null;
+  const previewSpouse = hoveredSpouse || focusedSpouse;
+  const selectedSpouse = selectedPid ? spouses.find((s) => s.id === selectedPid) || null : null;
+  const hasTooltip = Boolean(
+    previewWedge?.person ||
+    (previewWedge && canEdit && previewWedge.parentChildId) ||
+    previewSpouse,
+  );
+  const showEmptyTreePrompt = Boolean(
+    isAncestorView &&
+    center &&
+    !center.motherId &&
+    !center.fatherId &&
+    canEdit &&
+    !hasTooltip,
+  );
+
+  const selectionAnnouncement = React.useMemo(() => {
+    if (!selectedPid) return "";
+    if (selectedWedge?.person) {
+      const life = formatLifespan(selectedWedge.person.birth, selectedWedge.person.death);
+      const rel = generationLabel(
+        selectedWedge.generation,
+        viewDirection,
+        selectedWedge.lineageSide,
+        selectedWedge.isSibling,
+      );
+      return `${selectedWedge.person.name}${life ? `, ${life}` : ""}, ${rel} selected.`;
+    }
+    if (selectedSpouse) {
+      const life = formatLifespan(selectedSpouse.birth, selectedSpouse.death);
+      return `${selectedSpouse.name}${life ? `, ${life}` : ""}, Spouse selected.`;
+    }
+    if (selectedPid === centerId && center) {
+      return `${center.name}${centerLifespan ? `, ${centerLifespan}` : ""}, Center person selected.`;
+    }
+    const person = family[selectedPid];
+    if (!person) return "";
+    const life = formatLifespan(person.birth, person.death);
+    return `${person.name}${life ? `, ${life}` : ""} selected.`;
+  }, [selectedPid, selectedWedge, selectedSpouse, centerId, center, centerLifespan, family, viewDirection]);
 
   return (
     <div className="lineage-wheel">
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {selectionAnnouncement}
+      </div>
       <div className="wheel-ambient-glow" aria-hidden="true" />
-      <svg className="wheel-svg" viewBox={`0 0 ${SIZE} ${SIZE}`}>
+      <svg
+        className="wheel-svg"
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        role="img"
+        aria-label={`${isAncestorView ? "Ancestor" : "Descendant"} family wheel centered on ${center?.name || "person"}`}
+      >
         <defs>
           <linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="hsl(276, 82%, 66%)" />
-            <stop offset="55%" stopColor="hsl(232, 85%, 64%)" />
-            <stop offset="100%" stopColor="hsl(198, 92%, 60%)" />
+            <stop offset="0%" stopColor="hsl(276, 86%, 76%)" />
+            <stop offset="55%" stopColor="hsl(228, 88%, 76%)" />
+            <stop offset="100%" stopColor="hsl(198, 92%, 72%)" />
           </linearGradient>
           <radialGradient id="hub-sheen" cx="35%" cy="30%" r="70%">
             <stop offset="0%" stopColor="hsl(0, 0%, 100%)" stopOpacity="0.24" />
@@ -203,11 +270,41 @@ export default function LineageWheel({
             const canAddHere = Boolean(!hasPerson && canEdit && w.parentChildId && w.slot && onEmptySlotClick);
             const color = genColor(w.generation);
             const labelRot = labelRotation(w, wheelRotDeg);
-            const labelWidth = ((w.endAngle - w.startAngle) * (w.innerRadius + w.outerRadius)) / 2;
-            const maxChars = Math.max(3, Math.floor(labelWidth / 7.2));
+            const midRadius = (w.innerRadius + w.outerRadius) / 2;
+            const angleSpan = w.endAngle - w.startAngle;
+            const labelWidth = angleSpan * midRadius;
+            const chordSpan = 2 * Math.max(0, midRadius - 6) * Math.sin(Math.min(angleSpan, Math.PI) / 2);
+            const outerSpan = 2 * Math.sqrt(Math.max(0, w.outerRadius * w.outerRadius - (midRadius + 10) * (midRadius + 10)));
+            const safeLabelWidth = Math.min(labelWidth, chordSpan, outerSpan);
+            const nameFontSize = w.generation <= 1 ? (w.isSibling ? 13.5 : 15.5) : w.generation <= 2 ? 12.5 : w.generation === 3 ? 11 : 10;
+            const surnameFontSize = w.generation <= 2 ? 10 : 8.5;
+            const firstMaxChars = Math.max(3, Math.min(16, Math.floor((safeLabelWidth * 0.94) / (nameFontSize * 0.52))));
+            const surnameMaxChars = Math.max(
+              3,
+              Math.min(w.generation <= 1 ? 16 : 18, Math.floor((safeLabelWidth * 0.94) / (surnameFontSize * 0.56))),
+            );
             const { first, rest } = hasPerson ? splitDisplayName(w.person.name) : { first: "", rest: "" };
             const parentName = w.parentChildId ? family[w.parentChildId]?.name : "";
             const lifespan = hasPerson ? formatLifespan(w.person.birth, w.person.death) : "";
+            const relationText = hasPerson
+              ? generationLabel(w.generation, viewDirection, w.lineageSide, w.isSibling)
+              : "";
+            const hasSiblings = Boolean(
+              isAncestorView && hasPerson && !w.isSibling && getSiblings(w.person.id, family).length > 0,
+            );
+            const hasOuterRelatives = Boolean(
+              hasPerson &&
+                (isAncestorView
+                  ? w.person.motherId || w.person.fatherId
+                  : getChildren(w.person.id, family).length > 0),
+            );
+            const canExpandMore = Boolean(
+              hasPerson && !w.isSibling && w.generation >= 2 && w.generation < MAX_GEN && hasOuterRelatives,
+            );
+            const ariaExpanded =
+              hasSiblings || canExpandMore
+                ? Boolean((hasSiblings && sibAnchorPid === w.person.id) || (canExpandMore && expanded.has(w.person.id)))
+                : undefined;
 
             const fillOpacity = hasPerson
               ? isHover || isSelected
@@ -225,7 +322,10 @@ export default function LineageWheel({
                 ? 0.42
                 : 0.16;
 
-            const arcPad = Math.min(0.03, (w.endAngle - w.startAngle) * 0.22);
+            const arcPad = Math.min(0.03, angleSpan * 0.22);
+            const showSlotLabel = Boolean(
+              (isHover && labelWidth >= 56) || (w.generation === 1 && labelWidth >= 70),
+            );
 
             return (
               <g
@@ -233,6 +333,8 @@ export default function LineageWheel({
                 className={`wheel-wedge${hasPerson || canAddHere ? " is-interactive" : ""}${isHover ? " is-hovered" : ""}`}
                 role={hasPerson || canAddHere ? "button" : undefined}
                 tabIndex={hasPerson || canAddHere ? 0 : undefined}
+                aria-pressed={hasPerson ? isSelected : undefined}
+                aria-expanded={ariaExpanded}
                 aria-label={
                   hasPerson
                     ? `${w.person.name}${w.isSibling ? ", sibling" : ""}. Enter to select; R to center.`
@@ -243,6 +345,8 @@ export default function LineageWheel({
                 style={{ transformOrigin: `${CX}px ${CY}px` }}
                 onMouseEnter={() => (hasPerson || canAddHere) && setHoverKey(w.key)}
                 onMouseLeave={() => setHoverKey((current) => (current === w.key ? null : current))}
+                onFocus={() => (hasPerson || canAddHere) && setFocusKey(w.key)}
+                onBlur={() => setFocusKey((current) => (current === w.key ? null : current))}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (hasPerson) onWedgeClick(w.person.id, w.isSibling);
@@ -267,6 +371,7 @@ export default function LineageWheel({
                   <title>
                     {w.person.name}
                     {lifespan ? ` (${lifespan})` : ""}
+                    {relationText ? ` · ${relationText}` : ""}
                   </title>
                 )}
                 {canAddHere && (
@@ -303,7 +408,7 @@ export default function LineageWheel({
                     transition: "fill-opacity 0.2s ease, stroke 0.2s ease, filter 0.2s ease",
                   }}
                 />
-                {hasPerson && w.hasMore && w.endAngle - w.startAngle > 0.05 && (
+                {hasPerson && w.hasMore && angleSpan > 0.05 && (
                   <path
                     d={arcPath(CX, CY, w.outerRadius - 3, w.startAngle + arcPad, w.endAngle - arcPad)}
                     fill="none"
@@ -320,24 +425,24 @@ export default function LineageWheel({
                     y={w.labelPos.y}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fontSize={w.generation <= 1 ? 15.5 : w.generation <= 2 ? 12.5 : w.generation === 3 ? 11 : 10}
+                    fontSize={nameFontSize}
                     fontWeight={w.isSibling ? 500 : 600}
                     fill={w.isSibling ? "hsl(40, 25%, 86%)" : "hsl(40, 30%, 97%)"}
                     transform={`rotate(${labelRot} ${w.labelPos.x} ${w.labelPos.y})`}
                     className="wheel-label"
                   >
                     <tspan x={w.labelPos.x} dy={rest ? "-0.32em" : "0.05em"}>
-                      {truncateLabel(first, maxChars)}
+                      {truncateLabel(first, firstMaxChars)}
                     </tspan>
                     {rest && (
                       <tspan
                         x={w.labelPos.x}
                         dy="1.15em"
-                        fontSize={w.generation <= 2 ? 10 : 8.5}
+                        fontSize={surnameFontSize}
                         fontWeight={400}
-                        opacity={0.88}
+                        opacity={0.96}
                       >
-                        {truncateLabel(rest, maxChars + 2)}
+                        {truncateLabel(rest, surnameMaxChars)}
                       </tspan>
                     )}
                   </text>
@@ -348,13 +453,13 @@ export default function LineageWheel({
                     y={w.labelPos.y}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fontSize={isHover ? 16 : 13}
+                    fontSize={isHover ? 14 : showSlotLabel ? 12.5 : 13}
                     fontWeight={600}
                     fill={isHover ? "hsl(280, 90%, 82%)" : "hsl(230, 18%, 55%)"}
-                    transform={`rotate(${labelRot} ${w.labelPos.x} ${w.labelPos.y})`}
+                    transform={`rotate(${-wheelRotDeg} ${w.labelPos.x} ${w.labelPos.y})`}
                     style={{ pointerEvents: "none" }}
                   >
-                    {isHover ? `+ ${w.slot === "mother" ? "Mother" : "Father"}` : "+"}
+                    {showSlotLabel ? `+ ${w.slot === "mother" ? "Mother" : "Father"}` : "+"}
                   </text>
                 )}
               </g>
@@ -369,8 +474,8 @@ export default function LineageWheel({
                 className="wheel-side-tag"
                 aria-hidden="true"
               >
-                <circle cx={-34} cy={0} r={3.5} fill="var(--maternal)" />
-                <text x={-26} y={0} dominantBaseline="middle" fontSize={11} fontWeight={500} fill="var(--muted-fg)">
+                <circle cx={-38} cy={0} r={3.5} fill="var(--maternal)" />
+                <text x={-30} y={0} dominantBaseline="middle" fontSize={11} fontWeight={500} fill="var(--muted-fg)">
                   Maternal
                 </text>
               </g>
@@ -379,10 +484,10 @@ export default function LineageWheel({
                 className="wheel-side-tag"
                 aria-hidden="true"
               >
-                <text x={24} y={0} textAnchor="end" dominantBaseline="middle" fontSize={11} fontWeight={500} fill="var(--muted-fg)">
+                <text x={28} y={0} textAnchor="end" dominantBaseline="middle" fontSize={11} fontWeight={500} fill="var(--muted-fg)">
                   Paternal
                 </text>
-                <circle cx={32} cy={0} r={3.5} fill="var(--paternal)" />
+                <circle cx={36} cy={0} r={3.5} fill="var(--paternal)" />
               </g>
             </>
           )}
@@ -419,6 +524,7 @@ export default function LineageWheel({
               className="scaleIn wheel-spouse"
               role="button"
               tabIndex={0}
+              aria-pressed={isSelected}
               aria-label={`${spouse.name}, spouse. Enter to select; R to center.`}
               style={{
                 transformOrigin: `${CX}px ${CY}px`,
@@ -426,6 +532,8 @@ export default function LineageWheel({
               }}
               onMouseEnter={() => setHoverSpouseId(spouse.id)}
               onMouseLeave={() => setHoverSpouseId((current) => (current === spouse.id ? null : current))}
+              onFocus={() => setFocusSpouseId(spouse.id)}
+              onBlur={() => setFocusSpouseId((current) => (current === spouse.id ? null : current))}
               onClick={(e) => {
                 e.stopPropagation();
                 onSpouseClick(spouse.id);
@@ -494,7 +602,7 @@ export default function LineageWheel({
                   fontSize={7.5}
                   fontWeight={600}
                   fill="hsl(40, 30%, 96%)"
-                  opacity={0.9}
+                  opacity={0.96}
                   className="wheel-label"
                 >
                   Spouse
@@ -509,6 +617,7 @@ export default function LineageWheel({
           role="button"
           tabIndex={0}
           data-center-person-id={centerId}
+          aria-pressed={selectedPid === centerId}
           aria-label={`Select ${center?.name ?? "center person"}`}
           className="wheel-hub"
           onClick={(e) => {
@@ -526,7 +635,7 @@ export default function LineageWheel({
             {center?.name ?? ""}
             {centerLifespan ? ` (${centerLifespan})` : ""}
           </title>
-          <circle cx={CX} cy={CY} r={CENTER_R} fill="url(#cg)" className="pulse" />
+          <circle cx={CX} cy={CY} r={CENTER_R} fill="url(#cg)" className="pulse hub-outer" />
           <circle cx={CX} cy={CY} r={CENTER_R} fill="url(#hub-sheen)" />
           <circle
             cx={CX}
@@ -544,7 +653,7 @@ export default function LineageWheel({
             dominantBaseline="middle"
             fontSize={28}
             fontWeight={700}
-            fill="hsl(230, 32%, 8%)"
+            fill="hsl(230, 36%, 7%)"
             className="fd"
           >
             {initials}
@@ -555,8 +664,8 @@ export default function LineageWheel({
             textAnchor="middle"
             fontSize={11.5}
             fontWeight={600}
-            fill="hsl(230, 32%, 8%)"
-            opacity={0.9}
+            fill="hsl(230, 36%, 7%)"
+            opacity={1}
           >
             {truncateLabel(center?.name ?? "", 16)}
           </text>
@@ -567,8 +676,8 @@ export default function LineageWheel({
               textAnchor="middle"
               fontSize={9.5}
               fontWeight={500}
-              fill="hsl(230, 32%, 8%)"
-              opacity={0.72}
+              fill="hsl(230, 36%, 7%)"
+              opacity={0.95}
             >
               {truncateLabel(centerLifespan, 16)}
             </text>
@@ -578,48 +687,54 @@ export default function LineageWheel({
 
       {hudHost ? createPortal(
         <>
-          {!isAncestorView && (
+          {!isAncestorView && !hasTooltip && (
             <div className="wheel-direction-badge">
               Descendant line
             </div>
           )}
 
-          {/* Floating hover preview HUD or sibling hint */}
-          {hoveredWedge?.person ? (
+          {/* Floating hover preview HUD, sibling hint, or empty-tree prompt */}
+          {previewWedge?.person ? (
             <div className="wheel-tooltip glass">
-              <strong>{hoveredWedge.person.name}</strong>
-              {formatLifespan(hoveredWedge.person.birth, hoveredWedge.person.death) && (
+              <strong>{previewWedge.person.name}</strong>
+              {formatLifespan(previewWedge.person.birth, previewWedge.person.death) && (
                 <span className="wheel-tooltip-dates">
-                  {formatLifespan(hoveredWedge.person.birth, hoveredWedge.person.death)}
+                  {formatLifespan(previewWedge.person.birth, previewWedge.person.death)}
                 </span>
               )}
               <span className="wheel-tooltip-meta">
-                {generationLabel(hoveredWedge.generation, viewDirection, hoveredWedge.lineageSide, hoveredWedge.isSibling)}
-                {hoveredWedge.hasMore ? " · Has more generations" : ""}
+                {generationLabel(previewWedge.generation, viewDirection, previewWedge.lineageSide, previewWedge.isSibling)}
+                {previewWedge.hasMore ? " · Has more generations" : ""}
               </span>
             </div>
-          ) : hoveredWedge && canEdit && hoveredWedge.parentChildId ? (
+          ) : previewWedge && canEdit && previewWedge.parentChildId ? (
             <div className="wheel-tooltip glass">
-              <strong>Add {hoveredWedge.slot}</strong>
+              <strong>Add {previewWedge.slot}</strong>
               <span className="wheel-tooltip-meta">
-                of {family[hoveredWedge.parentChildId]?.name || "person"} · Click to open form
+                of {family[previewWedge.parentChildId]?.name || "person"} · Click to open form
               </span>
             </div>
-          ) : hoveredSpouse ? (
+          ) : previewSpouse ? (
             <div className="wheel-tooltip glass">
-              <strong>{hoveredSpouse.name}</strong>
-              {formatLifespan(hoveredSpouse.birth, hoveredSpouse.death) && (
+              <strong>{previewSpouse.name}</strong>
+              {formatLifespan(previewSpouse.birth, previewSpouse.death) && (
                 <span className="wheel-tooltip-dates">
-                  {formatLifespan(hoveredSpouse.birth, hoveredSpouse.death)}
+                  {formatLifespan(previewSpouse.birth, previewSpouse.death)}
                 </span>
               )}
               <span className="wheel-tooltip-meta">Spouse · Click to inspect · Double-click to center</span>
             </div>
-          ) : isAncestorView && sibAnchorPid && sibAnchorPid !== centerId ? (
+          ) : isAncestorView && sibAnchorPid && sibAnchorPid !== centerId && hasVisibleSiblings ? (
             <div className="wheel-sibling-hint scaleIn">
               <span className="wheel-sibling-dash" />
               Siblings shown with dashed border · click again to hide
               <span className="wheel-sibling-dash" />
+            </div>
+          ) : showEmptyTreePrompt ? (
+            <div className="wheel-tooltip glass">
+              <span className="wheel-tooltip-meta">
+                Click + Mother or + Father on the wheel to grow your tree
+              </span>
             </div>
           ) : null}
         </>,

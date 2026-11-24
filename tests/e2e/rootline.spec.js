@@ -16,15 +16,13 @@ test('fits the 1000-unit fan into the available chart viewport', async ({ page }
   await expect(wheel.locator('circle[r="428"]')).toHaveCount(1);
   await expect(wheel.locator('circle[r="486"]')).toHaveCount(0);
 
-  // Default view starts zoomed in at 150% with the hub anchored near the bottom.
-  await expect(page.getByLabel('Zoom level')).toHaveText('150%');
+  // Default view starts at 100% with the hub anchored near the bottom.
+  await expect(page.getByLabel('Zoom level')).toHaveText('100%');
   const viewport = await page.locator('.chart-viewport').boundingBox();
   const hubBox = await page.locator('[data-center-person-id]').boundingBox();
   expect(hubBox.y + hubBox.height / 2).toBeGreaterThan(viewport.y + viewport.height * 0.65);
 
-  // Fit chart shows the full 6-ring 180-degree fan inside the viewport at 100%.
-  await page.getByRole('button', { name: 'Fit chart' }).click();
-  await expect(page.getByLabel('Zoom level')).toHaveText('100%');
+  // Full 6-ring 180-degree fan fits cleanly at 100%.
   const box = await wheel.boundingBox();
   expect(box?.width).toBeGreaterThan(350);
   expect(box?.width).toBeLessThanOrEqual(1050);
@@ -283,4 +281,25 @@ test('toggles sibling fan off, navigates via relative chips and breadcrumbs, and
     await expect(page.getByRole('dialog', { name: 'Add Family Member' })).toBeVisible();
     await page.keyboard.press('Escape');
   }
+});
+
+test('rejects whitespace-only names in PersonEditor without corrupting saved localStorage', async ({ page }) => {
+  await page.locator('path[data-person-id="elena"]').click();
+  await page.getByRole('button', { name: 'Edit person', exact: true }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Edit Person' });
+  const nameInput = dialog.getByLabel('Full Name *');
+  await nameInput.fill('   ');
+  await dialog.getByRole('button', { name: 'Save person', exact: true }).click();
+
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('alert')).toContainText('Please enter a full name');
+  await expect(nameInput).toHaveAttribute('aria-invalid', 'true');
+  const describedBy = await nameInput.getAttribute('aria-describedby');
+  expect(describedBy).toBeTruthy();
+
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'The Lineage of Aria Hartwell' })).toBeVisible();
+  await expect(page.locator('path[data-person-id="elena"]')).toBeVisible();
 });

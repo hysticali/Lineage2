@@ -24,11 +24,15 @@ export function ToolsDrawer({ groups, initialGroup, onClose }) {
   const [active, setActive] = React.useState(initialGroup || null);
   return <Modal title="Tree tools" variant="drawer" onClose={onClose}>
     <p className="drawer-intro">Manage your archive here. The family wheel stays in place behind this panel.</p>
-    <div className="tool-groups">{groups.map(group => <section className="tool-group" key={group.id}>
-      <button className="tool-group-heading" aria-label={group.title} aria-expanded={active === group.id} aria-controls={`tools-${group.id}`} onClick={() => setActive(active === group.id ? null : group.id)}>
-        <span><strong>{group.title}</strong><small>{group.description}</small></span><span aria-hidden="true">{active === group.id ? '−' : '+'}</span>
-      </button>
-      {active === group.id && <div id={`tools-${group.id}`} className="tool-group-content">{group.content}</div>}
-    </section>)}</div>
+    <div className="tool-groups">{groups.map(group => {
+      const isOpen = active === group.id;
+      const descId = `tools-desc-${group.id}`;
+      return <section className="tool-group" key={group.id}>
+        <button className="tool-group-heading" aria-label={group.title} aria-describedby={descId} aria-expanded={isOpen} aria-controls={isOpen ? `tools-${group.id}` : undefined} onClick={() => setActive(isOpen ? null : group.id)}>
+          <span><strong>{group.title}</strong><small id={descId}>{group.description}</small></span><span aria-hidden="true">{isOpen ? '−' : '+'}</span>
+        </button>
+        {isOpen && <div id={`tools-${group.id}`} className="tool-group-content">{group.content}</div>}
+      </section>;
+    })}</div>
   </Modal>;
 }

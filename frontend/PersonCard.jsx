@@ -53,6 +53,7 @@ export function PersonCard({
   onAddPerson,
   canEdit = true,
   database = false,
+  inModal = false,
 }) {
   if (!person) {
     return (
@@ -67,9 +68,11 @@ export function PersonCard({
               <p className="person-card-sub">No records found</p>
             </div>
           </div>
-          <Btn variant="ghost" onClick={onClose} ariaLabel="Close person details">
-            <IcX />
-          </Btn>
+          {!inModal && (
+            <Btn variant="ghost" onClick={onClose} ariaLabel="Close person details">
+              <IcX />
+            </Btn>
+          )}
         </div>
         <p className="person-card-empty">The threads of this lineage are lost to time.</p>
       </div>
@@ -98,9 +101,11 @@ export function PersonCard({
             </div>
           </div>
         </div>
-        <Btn variant="ghost" onClick={onClose} ariaLabel="Close person details">
-          <IcX />
-        </Btn>
+        {!inModal && (
+          <Btn variant="ghost" onClick={onClose} ariaLabel="Close person details">
+            <IcX />
+          </Btn>
+        )}
       </div>
 
       <div className="person-card-details">

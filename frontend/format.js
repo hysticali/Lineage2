@@ -1,9 +1,14 @@
+const GENERATIONAL_SUFFIX = /^(?:jr\.?|sr\.?|ii|iii|iv|v)$/i;
+
 function getInitials(name) {
   const parts = String(name || '')
     .trim()
     .split(/\s+/)
     .filter(Boolean);
   if (!parts.length) return '?';
+  while (parts.length > 1 && GENERATIONAL_SUFFIX.test(parts[parts.length - 1].replace(/,+$/, ''))) {
+    parts.pop();
+  }
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
@@ -27,8 +32,10 @@ function truncateLabel(text, maxChars) {
 function formatLifespan(birth, death) {
   const b = String(birth || '').trim();
   const d = String(death || '').trim();
-  if (!b && !d) return '';
-  return `${b || '?'}–${d || '?'}`;
+  if (b && d) return `${b}–${d}`;
+  if (b) return `b. ${b}`;
+  if (d) return `d. ${d}`;
+  return '';
 }
 
 function generationLabel(gen, viewDirection, lineageSide = null, isSibling = false) {

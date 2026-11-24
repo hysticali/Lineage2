@@ -28,6 +28,8 @@ export const IcX = () => <Ic d="M18 6 6 18M6 6l12 12" />;
 
 export const IcTarget = () => (
   <svg
+    aria-hidden="true"
+    focusable="false"
     viewBox="0 0 24 24"
     width={16}
     height={16}
@@ -47,6 +49,8 @@ export const IcTarget = () => (
 
 export const IcInfo = () => (
   <svg
+    aria-hidden="true"
+    focusable="false"
     viewBox="0 0 24 24"
     width={16}
     height={16}
@@ -64,6 +68,8 @@ export const IcInfo = () => (
 
 export const IcUser = () => (
   <svg
+    aria-hidden="true"
+    focusable="false"
     viewBox="0 0 24 24"
     width={24}
     height={24}
@@ -82,6 +88,8 @@ export const IcPlus = () => <Ic d="M12 5v14M5 12h14" />;
 
 export const IcChevs = () => (
   <svg
+    aria-hidden="true"
+    focusable="false"
     viewBox="0 0 24 24"
     width={14}
     height={14}
@@ -98,6 +106,8 @@ export const IcChevs = () => (
 
 export const IcSibling = () => (
   <svg
+    aria-hidden="true"
+    focusable="false"
     viewBox="0 0 24 24"
     width={14}
     height={14}

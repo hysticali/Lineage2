@@ -14,6 +14,19 @@ function downloadGedcom(source, filename = 'rootline-family.ged') {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function treeNameFromFile(filename) {
+  const base = String(filename || '')
+    .replace(/\.ged$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+  if (!base) return 'Imported family tree';
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+function plural(count, singular, pluralWord) {
+  return `${count} ${count === 1 ? singular : pluralWord}`;
+}
+
 export default function BrowserGedcom({ archive, onImportArchive }) {
   const [importing, setImporting] = React.useState(null);
   const [exporting, setExporting] = React.useState(null);
@@ -32,7 +45,7 @@ export default function BrowserGedcom({ archive, onImportArchive }) {
       if (file.size > MAX_BYTES) throw new Error('GEDCOM file exceeds 20 MB.');
       let source;
       try {
-        source = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
+        source = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(await file.arrayBuffer());
       } catch {
         throw new Error('GEDCOM must be valid UTF-8 text.');
       }
@@ -49,9 +62,10 @@ export default function BrowserGedcom({ archive, onImportArchive }) {
     setError('');
     try {
       const { archive: imported, report } = importBrowserGedcom(importing.source, root);
-      onImportArchive(imported, `Before importing GEDCOM (${importing.filename})`);
+      const treeName = treeNameFromFile(importing.filename);
+      onImportArchive({ ...imported, treeName }, `Before importing GEDCOM (${importing.filename})`);
       setImporting(null);
-      setMessage(`Imported ${report.people} people and ${report.families} families from ${importing.filename}.`);
+      setMessage(`Imported ${plural(report.people, 'person', 'people')} and ${plural(report.families, 'family', 'families')} from ${importing.filename}.`);
     } catch (err) {
       setError(err.message);
     }
@@ -100,7 +114,7 @@ export default function BrowserGedcom({ archive, onImportArchive }) {
       {importing && (
         <Modal title="GEDCOM import preview" onClose={() => { setImporting(null); setError(''); }}>
           <p><strong>{importing.filename}</strong> · GEDCOM {importing.report.version}</p>
-          <p>{importing.report.people} people · {importing.report.families} families</p>
+          <p>{plural(importing.report.people, 'person', 'people')} · {plural(importing.report.families, 'family', 'families')}</p>
           <p>Importing replaces the active browser archive. A recovery copy of your current tree will be saved first.</p>
           {importing.report.errors.length > 0 && (
             <div role="alert">
@@ -134,24 +148,24 @@ export default function BrowserGedcom({ archive, onImportArchive }) {
           )}
           {error && <p role="alert">{error}</p>}
           <div className="toolbar">
-            <button type="button" disabled={importing.report.errors.length > 0} onClick={confirmImport}>
+            <button type="button" className="btn btn-gradient" disabled={importing.report.errors.length > 0} onClick={confirmImport}>
               Import into browser
             </button>
-            <button type="button" onClick={() => { setImporting(null); setError(''); }}>Cancel</button>
+            <button type="button" className="btn btn-outline" onClick={() => { setImporting(null); setError(''); }}>Cancel</button>
           </div>
         </Modal>
       )}
 
       {exporting && (
         <Modal title="GEDCOM export preview" onClose={() => { setExporting(null); setError(''); }}>
-          <p>GEDCOM 7.0 UTF-8 · {exporting.people} people · {exporting.families} families</p>
+          <p>GEDCOM 7.0 UTF-8 · {plural(exporting.people, 'person', 'people')} · {plural(exporting.families, 'family', 'families')}</p>
           <p>Includes names, genders, dates, birthplaces, occupations, notes, and family relationships from your current browser tree.</p>
           {error && <p role="alert">{error}</p>}
           <div className="toolbar">
-            <button type="button" onClick={() => { downloadGedcom(exporting.source); setExporting(null); setMessage('GEDCOM 7.0 file downloaded.'); }}>
+            <button type="button" className="btn btn-gradient" onClick={() => { downloadGedcom(exporting.source); setExporting(null); setMessage('GEDCOM 7.0 file downloaded.'); }}>
               Download GEDCOM (.ged)
             </button>
-            <button type="button" onClick={() => { setExporting(null); setError(''); }}>Close</button>
+            <button type="button" className="btn btn-outline" onClick={() => { setExporting(null); setError(''); }}>Close</button>
           </div>
         </Modal>
       )}

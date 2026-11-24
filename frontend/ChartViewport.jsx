@@ -20,10 +20,17 @@ export default function ChartViewport({ zoom, onZoom, centerKey, children, onBac
   const [pan, setPan] = React.useState({ x: 0, y: 0 });
   const [dragging, setDragging] = React.useState(false);
   const drag = React.useRef(null), suppressClick = React.useRef(false);
+  const pointers = React.useRef(new Map());
+  const pinch = React.useRef(null);
   const zoomRef = React.useRef(zoom);
   zoomRef.current = zoom;
   const onZoomRef = React.useRef(onZoom);
   onZoomRef.current = onZoom;
+
+  React.useEffect(() => {
+    document.body.classList.toggle('chart-dragging', dragging);
+    return () => document.body.classList.remove('chart-dragging');
+  }, [dragging]);
 
   React.useLayoutEffect(() => {
     const element = viewport.current;
@@ -62,24 +69,58 @@ export default function ChartViewport({ zoom, onZoom, centerKey, children, onBac
   function center() { setPan({ x: 0, y: 0 }); }
   function fit() { center(); onZoom(1); }
   function start(event) {
+    if (event.pointerType === 'touch') {
+      pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointers.current.size === 2) {
+        if (drag.current && viewport.current?.hasPointerCapture(drag.current.id)) {
+          viewport.current.releasePointerCapture(drag.current.id);
+        }
+        drag.current = null;
+        setDragging(false);
+        suppressClick.current = true;
+        const [a, b] = [...pointers.current.values()];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        pinch.current = dist > 0 ? { startDist: dist, startZoom: zoomRef.current } : null;
+        return;
+      }
+      if (pointers.current.size > 2) return;
+    }
     suppressClick.current = false;
     if (zoom <= 1 || event.button !== 0 || !event.isPrimary) return;
     drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, pan, moved: false };
   }
   function move(event) {
+    if (event.pointerType === 'touch' && pointers.current.has(event.pointerId)) {
+      pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointers.current.size === 2 && pinch.current) {
+        event.preventDefault();
+        const [a, b] = [...pointers.current.values()];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        const next = Math.max(
+          1,
+          Math.min(3, Math.round((pinch.current.startZoom * (dist / pinch.current.startDist)) * 4) / 4),
+        );
+        if (next !== zoomRef.current) onZoomRef.current(next);
+        return;
+      }
+    }
     const current = drag.current;
     if (!current || current.id !== event.pointerId || !scale) return;
     const x = event.clientX - current.x, y = event.clientY - current.y;
     if (!current.moved && Math.hypot(x, y) < 5) return;
     current.moved = true; suppressClick.current = true; setDragging(true);
-    viewport.current.setPointerCapture(event.pointerId);
+    try { viewport.current.setPointerCapture(event.pointerId); } catch {}
     event.preventDefault();
     setPan(clampPan({ x: current.pan.x + x / scale, y: current.pan.y + y / scale }, zoom));
   }
   function end(event) {
+    if (event.pointerType === 'touch') {
+      pointers.current.delete(event.pointerId);
+      if (pointers.current.size < 2) pinch.current = null;
+    }
     if (drag.current?.id !== event.pointerId) return;
     drag.current = null; setDragging(false);
-    if (viewport.current.hasPointerCapture(event.pointerId)) viewport.current.releasePointerCapture(event.pointerId);
+    if (viewport.current?.hasPointerCapture(event.pointerId)) viewport.current.releasePointerCapture(event.pointerId);
   }
   function keyboard(event) {
     if (event.target !== event.currentTarget) return;

@@ -4,7 +4,7 @@ const INDIVIDUAL_ATTRIBUTES = new Set('CAST DSCR EDUC IDNO NATI NCHI NMR OCCU PR
 const FAMILY_EVENTS = new Set('ANUL CENS DIV DIVF ENGA MARB MARC MARL MARR MARS EVEN'.split(' '));
 const FAMILY_ATTRIBUTES = new Set('NCHI RESI FACT'.split(' '));
 const text = (node, tag) => child(node, tag)?.value ?? null;
-const displayName = node => (text(node, 'NAME') || 'Unknown person').replaceAll('/', '').trim();
+const displayName = node => (text(node, 'NAME') || '').replaceAll('/', '').trim() || 'Unknown person';
 const eventKind = (ownerTag, tag) => (ownerTag === 'INDI' ? INDIVIDUAL_EVENTS : FAMILY_EVENTS).has(tag) ? 'EVENT' : (ownerTag === 'INDI' ? INDIVIDUAL_ATTRIBUTES : FAMILY_ATTRIBUTES).has(tag) ? 'ATTRIBUTE' : null;
 
 function planGedcom(source) {

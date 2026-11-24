@@ -277,8 +277,9 @@ function exportBrowserGedcom(archive) {
   }
 
   records.push(makeNode('TRLR'));
+  const serialized = serializeGedcom(records);
   return {
-    source: serializeGedcom(records),
+    source: serialized.startsWith('\uFEFF') ? serialized : `\uFEFF${serialized}`,
     people: people.length,
     families: families.length,
     warnings: [],

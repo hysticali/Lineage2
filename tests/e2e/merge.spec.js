@@ -22,7 +22,7 @@ test('duplicate review previews, merges, follows old links, and recovers origina
   await expect(dialog.getByRole('region', { name: 'Merge preview' })).toContainText('Transfer 1 names, 1 events, 1 notes');
   await dialog.getByRole('button', { name: 'Confirm person merge', exact: true }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.locator('header')).toContainText('1 people');
+  await expect(page.locator('header')).toContainText('1 person');
   await page.goto(`${origin}/?tree=${imported.treeId}&person=${ids[1]}&selected=${ids[1]}`);
   await expect(page.locator('[data-center-person-id]')).toHaveAttribute('data-center-person-id', ids[0]);
   await expect(page.getByRole('heading', { name: 'Alex Duplicate', exact: true })).toBeVisible();

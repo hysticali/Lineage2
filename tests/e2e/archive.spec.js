@@ -166,21 +166,35 @@ test('static mode lets users start a new tree and import/export GEDCOM 7.0 in th
   await modal.getByLabel('Birth date').fill('1988');
   await modal.getByRole('button', { name: 'Create new tree', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'The Lineage of Jordan Rivera' })).toBeVisible();
-  await expect(page.locator('header')).toContainText('1 people');
+  await expect(page.locator('header')).toContainText('1 person');
+  await expect(page.locator('header')).toContainText('Jordan Rivera’s Family Tree');
+  await expect(page.locator('footer')).toContainText('Jordan Rivera’s Family Tree');
 
-  // Export GEDCOM from browser mode and verify download
+  // Export GEDCOM from browser mode and verify download + zero-warning BOM round-trip
   const exchange = await openTools(page, 'Import and export');
   await exchange.getByRole('button', { name: 'Export GEDCOM', exact: true }).click();
   const exportDialog = page.getByRole('dialog', { name: 'GEDCOM export preview', exact: true });
-  await expect(exportDialog).toContainText('1 people');
+  await expect(exportDialog).toContainText('1 person');
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     exportDialog.getByRole('button', { name: 'Download GEDCOM (.ged)', exact: true }).click(),
   ]);
   const exportedPath = await download.path();
   const fs = require('node:fs');
-  const gedText = fs.readFileSync(exportedPath, 'utf8');
+  const gedBytes = fs.readFileSync(exportedPath);
+  const gedText = gedBytes.toString('utf8');
   expect(gedText).toContain('Jordan /Rivera/');
+
+  // Re-importing Rootline's own exported GEDCOM should produce zero BOM warnings
+  await exchange.getByLabel('Import GEDCOM', { exact: true }).setInputFiles({
+    name: 'jordan-roundtrip.ged',
+    mimeType: 'text/plain',
+    buffer: gedBytes,
+  });
+  const roundtripDialog = page.getByRole('dialog', { name: 'GEDCOM import preview', exact: true });
+  await expect(roundtripDialog).toContainText('1 person · 0 families');
+  await expect(roundtripDialog).not.toContainText('byte-order mark');
+  await roundtripDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 
   // Import a multi-person GEDCOM 7.0 file into browser mode
   const sampleGed = [
@@ -210,8 +224,36 @@ test('static mode lets users start a new tree and import/export GEDCOM 7.0 in th
     buffer: Buffer.from(sampleGed, 'utf8'),
   });
   const importDialog = page.getByRole('dialog', { name: 'GEDCOM import preview', exact: true });
-  await expect(importDialog).toContainText('2 people · 1 families');
+  await expect(importDialog).toContainText('2 people · 1 family');
   await importDialog.getByRole('button', { name: 'Import into browser', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'The Lineage of Morgan Lee' })).toBeVisible();
   await expect(page.locator('header')).toContainText('2 people');
+  await expect(page.locator('header')).toContainText('Morgan');
+});
+
+test('onboarding CTAs launch tree creation in one click and recovery copies can be cleared', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'The Lineage of Aria Hartwell' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Start your own tree', exact: true }).click();
+  const modal = page.getByRole('dialog', { name: 'Start a new family tree', exact: true });
+  await expect(modal).toBeVisible();
+
+  // Whitespace-only starting name is rejected inline without closing the modal
+  await modal.getByLabel('Starting person’s full name *').fill('   ');
+  await modal.getByRole('button', { name: 'Create new tree', exact: true }).click();
+  await expect(modal.getByRole('alert')).toContainText('enter a name');
+  await expect(modal.getByLabel('Starting person’s full name *')).toHaveAttribute('aria-invalid', 'true');
+
+  await modal.getByLabel('Starting person’s full name *').fill('Casey Morgan');
+  await modal.getByLabel('Tree name').fill('Morgan Heritage');
+  await modal.getByRole('button', { name: 'Create new tree', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'The Lineage of Casey Morgan' })).toBeVisible();
+  await expect(page.locator('header')).toContainText('Morgan Heritage');
+
+  const drafts = await openTools(page, 'Browser drafts');
+  await drafts.getByRole('button', { name: /Recovery copies \(1\)/ }).click();
+  const recoveryDialog = page.getByRole('dialog', { name: 'Recovery copies', exact: true });
+  await recoveryDialog.getByRole('button', { name: 'Clear old copies', exact: true }).click();
+  await expect(recoveryDialog).toContainText('No recovery copies yet.');
 });

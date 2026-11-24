@@ -24,8 +24,14 @@ function createApp({ repository, staticDir = path.resolve(__dirname, '..'), auth
   if (config.trustProxy) app.set('trust proxy', 'loopback');
   app.use((request, response, next) => {
     request.requestId = randomUUID();
-    response.set({ 'X-Request-ID': request.requestId, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
-      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" });
+    response.set({
+      'X-Request-ID': request.requestId,
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer',
+      'X-Frame-Options': 'DENY',
+      'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+    });
     if (config.mode === 'local' && !LOOPBACK.has(request.hostname)) return response.status(403).json({ error: 'Local mode requires a loopback host' });
     next();
   });
@@ -253,6 +259,15 @@ function createApp({ repository, staticDir = path.resolve(__dirname, '..'), auth
   app.get(['/', '/index.html'], async (_request, response) => {
     const html = await fs.readFile(path.join(staticDir, 'index.html'), 'utf8');
     response.set('Cache-Control', 'private, no-store').type('html').send(html.replace('name="lineage-mode" content="auto"', 'name="lineage-mode" content="database"'));
+  });
+  app.get('/favicon.svg', async (_request, response) => {
+    const faviconPath = path.resolve(staticDir, 'favicon.svg');
+    try {
+      await fs.access(faviconPath);
+      response.type('image/svg+xml').sendFile(faviconPath);
+    } catch {
+      response.status(404).end();
+    }
   });
   app.get('/family-data.json', (_request, response) => {
     if (config.mode === 'private') return response.status(404).json({ error: 'Static sample data is unavailable in private mode' });

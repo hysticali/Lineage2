@@ -22,8 +22,8 @@ export default function Modal({ title, onClose, children, variant = 'modal', ret
   React.useEffect(() => {
     const previous = document.activeElement;
     const instance = { overlay, ref }; stack.push(instance); syncLayers();
-    const focusable = () => [...ref.current.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], summary, [tabindex="0"]')].filter(element => element.getClientRects().length && !element.closest('[hidden], [inert]'));
-    (ref.current.querySelector('input[type="search"], input[required]') || focusable()[0] || ref.current).focus({ preventScroll: true });
+    const focusable = () => [...ref.current.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], summary, [tabindex="0"]')].filter(element => element.getClientRects().length && !element.closest('[hidden], [inert]'));
+    (ref.current.querySelector('input[type="search"]:not(:disabled), input[required]:not(:disabled)') || focusable()[0] || ref.current).focus({ preventScroll: true });
     function handleKey(event) {
       if (stack.at(-1) !== instance) return;
       if (event.key === 'Escape') { event.preventDefault(); close.current(); }

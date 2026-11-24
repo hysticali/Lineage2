@@ -1,20 +1,52 @@
-import archiveTools from '../src/domain/archive';
-const { fingerprint, validateArchive } = archiveTools;
+const { fingerprint, validateArchive } = require('../src/domain/archive');
 
-export const storageKeyFor = (treeId) => `lineage-v3:${encodeURIComponent(treeId)}`;
+const MAX_RECOVERIES = 10;
 
-export function readRecoveries(storage, key) {
+const storageKeyFor = (treeId) => `lineage-v3:${encodeURIComponent(treeId)}`;
+
+function readRecoveries(storage, key) {
   const value = JSON.parse(storage.getItem(`${key}:recoveries`) || '[]');
   if (!Array.isArray(value)) throw new Error('Recovery storage is invalid; export it before continuing');
   return value;
 }
 
-export function preserveRecovery(storage, key, raw, reason) {
+function isQuotaError(error) {
+  return Boolean(
+    error &&
+      (error.name === 'QuotaExceededError' ||
+        error.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+        error.code === 22 ||
+        error.code === 1014),
+  );
+}
+
+function preserveRecovery(storage, key, raw, reason) {
   const entries = readRecoveries(storage, key);
   if (entries.some((entry) => entry.raw === raw)) return entries;
   entries.push({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), reason, raw });
-  storage.setItem(`${key}:recoveries`, JSON.stringify(entries));
-  return entries;
+  while (entries.length > MAX_RECOVERIES) entries.shift();
+  const storageKey = `${key}:recoveries`;
+  while (true) {
+    try {
+      storage.setItem(storageKey, JSON.stringify(entries));
+      return entries;
+    } catch (error) {
+      if (isQuotaError(error) && entries.length > 1) {
+        entries.shift();
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+function clearRecoveries(storage, key) {
+  if (typeof storage.removeItem === 'function') {
+    storage.removeItem(`${key}:recoveries`);
+  } else {
+    storage.setItem(`${key}:recoveries`, '[]');
+  }
+  return [];
 }
 
 function legacyFingerprint(family) {
@@ -23,7 +55,7 @@ function legacyFingerprint(family) {
   return (hash >>> 0).toString(16);
 }
 
-export function loadLocalState(storage, source) {
+function loadLocalState(storage, source) {
   const key = storageKeyFor(source.treeId);
   const initialArchive = { rootId: source.rootId, family: source.family, ...(source.families && { families: source.families }) };
   const baseFingerprint = fingerprint(initialArchive);
@@ -61,9 +93,19 @@ export function loadLocalState(storage, source) {
   return result;
 }
 
-export function recoveryArchive(entry, fallbackRootId) {
+function recoveryArchive(entry, fallbackRootId) {
   const data = JSON.parse(entry.raw);
   const archive = data.archive || { rootId: data.rootId || fallbackRootId, family: data.family };
   validateArchive(archive);
   return archive;
 }
+
+module.exports = {
+  MAX_RECOVERIES,
+  storageKeyFor,
+  readRecoveries,
+  preserveRecovery,
+  clearRecoveries,
+  loadLocalState,
+  recoveryArchive,
+};

@@ -11,7 +11,8 @@
   --muted: hsl(230, 20%, 18%);
   --card: hsl(230, 30%, 10%);
   --border: hsl(232, 24%, 21%);
-  --border-strong: hsl(266, 36%, 44%);
+  --border-control: hsl(232, 22%, 50%);
+  --border-strong: hsl(266, 48%, 58%);
 
   --primary: hsl(276, 84%, 68%);
   --primary-fg: hsl(230, 30%, 7%);
@@ -20,13 +21,13 @@
   --paternal: hsl(212, 82%, 62%);
   --warning: hsl(42, 88%, 74%);
 
-  --gen-0: hsl(268, 72%, 56%);
+  --gen-0: hsl(268, 72%, 50%);
   --gen-1: hsl(252, 68%, 50%);
   --gen-2: hsl(216, 72%, 44%);
-  --gen-3: hsl(192, 74%, 36%);
-  --gen-4: hsl(166, 66%, 32%);
-  --gen-5: hsl(138, 52%, 32%);
-  --gen-6: hsl(36, 76%, 38%);
+  --gen-3: hsl(192, 74%, 30%);
+  --gen-4: hsl(166, 66%, 27%);
+  --gen-5: hsl(138, 52%, 27%);
+  --gen-6: hsl(36, 76%, 32%);
 
   --grad-center: linear-gradient(135deg, hsl(276, 82%, 66%), hsl(200, 92%, 60%));
   --grad-bg: radial-gradient(
@@ -55,11 +56,37 @@ html {
 
 body {
   font-family: var(--font-sans);
+  font-size: 1rem;
   color: var(--fg);
   background: var(--grad-bg);
   background-attachment: fixed;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+}
+
+body.chart-dragging {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 200;
+  padding: 10px 16px;
+  background: var(--primary);
+  color: var(--primary-fg);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: 0 0 8px 0;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  left: 0;
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
 }
 
 input,
@@ -164,11 +191,11 @@ svg [tabindex]:focus-visible {
 }
 
 svg [role="button"]:focus-visible > path,
-svg [role="button"]:focus-visible > circle,
+svg [role="button"]:focus-visible > circle.hub-outer,
 svg [role="button"]:focus-visible > rect {
-  stroke: var(--primary) !important;
+  stroke: var(--fg) !important;
   stroke-width: 3px !important;
-  filter: drop-shadow(0 0 7px var(--primary));
+  filter: drop-shadow(0 0 7px hsl(40 30% 96% / 0.85));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -201,7 +228,7 @@ svg [role="button"]:focus-visible > rect {
   font-weight: 500;
   border-radius: 9px;
   padding: 8px 14px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
 }
 
@@ -211,7 +238,7 @@ svg [role="button"]:focus-visible > rect {
 
 .btn-default {
   background: var(--bg-surface);
-  border-color: var(--border);
+  border-color: var(--border-control);
   color: var(--fg);
 }
 
@@ -222,6 +249,7 @@ svg [role="button"]:focus-visible > rect {
 
 .btn-gradient {
   background: var(--grad-center);
+  border-color: transparent;
   color: var(--primary-fg);
   font-weight: 600;
 }
@@ -232,13 +260,25 @@ svg [role="button"]:focus-visible > rect {
 
 .btn-outline {
   background: transparent;
-  border-color: var(--border);
+  border-color: var(--border-control);
   color: var(--fg);
 }
 
 .btn-outline:hover:not(:disabled) {
   background: hsl(236, 26%, 16%);
   border-color: var(--border-strong);
+}
+
+.btn-danger {
+  background: hsl(352, 58%, 24%);
+  border-color: hsl(352, 68%, 54%);
+  color: hsl(352, 95%, 94%);
+  font-weight: 600;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: hsl(352, 62%, 30%);
+  border-color: hsl(352, 78%, 64%);
 }
 
 .btn-ghost {
@@ -256,7 +296,12 @@ svg [role="button"]:focus-visible > rect {
   background: transparent;
   color: var(--muted-fg);
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: 0.75rem;
+}
+
+.btn-ghost-sm:hover:not(:disabled) {
+  color: var(--fg);
+  background: hsl(232, 24%, 18%);
 }
 
 .tag {
@@ -264,21 +309,21 @@ svg [role="button"]:focus-visible > rect {
   border: 1px solid transparent;
   border-radius: 6px;
   padding: 2px 8px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 500;
   display: inline-block;
 }
 
 .tag-outline {
   background: transparent;
-  border-color: var(--border);
+  border-color: var(--border-control);
   color: var(--muted-fg);
 }
 
 .file-button {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   border-radius: 8px;
   padding: 8px 12px;
   background: var(--bg-surface);
@@ -328,7 +373,7 @@ svg [role="button"]:focus-visible > rect {
 }
 
 .workspace-brand h1 {
-  font-size: 22px;
+  font-size: 1.375rem;
   color: var(--fg);
   letter-spacing: -0.01em;
 }
@@ -341,17 +386,17 @@ svg [role="button"]:focus-visible > rect {
 .workspace-tree select {
   width: 100%;
   min-height: 36px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   border-radius: 8px;
   background: var(--bg);
   color: var(--fg);
   padding: 6px 10px;
   font: inherit;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .workspace-tree-name {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--muted-fg);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -360,7 +405,7 @@ svg [role="button"]:focus-visible > rect {
 }
 
 .workspace-count {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted-fg);
   white-space: nowrap;
 }
@@ -373,36 +418,36 @@ svg [role="button"]:focus-visible > rect {
   flex-shrink: 0;
 }
 
-.workspace-actions button,
+.workspace-actions button:not(.btn),
 .account-menu summary,
-.account-popover button,
-.view-switch button,
-.mobile-person-summary button,
-.tool-group-content > button,
+.account-popover button:not(.btn),
+.view-switch button:not(.btn),
+.mobile-person-summary button:not(.btn),
+.tool-group-content > button:not(.btn),
 .add-independent,
-.archive-controls button,
-.migration-controls button,
-.load-state button,
-.people-search button,
-.chart-toolbar button,
-.archive-modal button {
+.archive-controls button:not(.btn),
+.migration-controls button:not(.btn),
+.load-state button:not(.btn),
+.people-search button:not(.btn),
+.chart-toolbar button:not(.btn),
+.archive-modal button:not(.btn):not(.relative-chip) {
   color: var(--fg);
   background: var(--bg-elevated);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   border-radius: 8px;
   padding: 8px 12px;
   font: inherit;
-  font-size: 13px;
+  font-size: 0.8125rem;
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.workspace-actions button:hover:not(:disabled),
+.workspace-actions button:not(.btn):hover:not(:disabled),
 .account-menu summary:hover,
-.chart-toolbar button:hover:not(:disabled),
+.chart-toolbar button:not(.btn):hover:not(:disabled),
 .tool-group-heading:hover,
 .add-independent:hover,
-.archive-modal button:hover:not(:disabled) {
+.archive-modal button:not(.btn):not(.relative-chip):hover:not(:disabled) {
   border-color: var(--border-strong);
   background: hsl(238, 25%, 18%);
 }
@@ -410,21 +455,21 @@ svg [role="button"]:focus-visible > rect {
 .workspace-actions kbd {
   margin-left: 10px;
   padding: 0 5px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   border-radius: 4px;
   color: var(--muted-fg);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .workspace-status {
   max-width: 1600px;
   margin: auto;
-  min-height: 27px;
+  min-height: 28px;
   padding: 2px 24px 8px;
   display: flex;
   gap: 10px;
   align-items: center;
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--muted-fg);
 }
 
@@ -440,6 +485,10 @@ svg [role="button"]:focus-visible > rect {
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
+  min-height: 28px;
+  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .workspace-warning {
@@ -447,7 +496,14 @@ svg [role="button"]:focus-visible > rect {
   max-width: 1600px;
   margin: auto;
   color: var(--warning);
-  font-size: 12px;
+  font-size: 0.75rem;
+}
+
+.workspace-notice-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .app-layout {
@@ -463,7 +519,7 @@ svg [role="button"]:focus-visible > rect {
 .workspace-footer {
   padding: 8px 24px 12px;
   text-align: center;
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--muted-fg);
 }
 
@@ -484,7 +540,7 @@ svg [role="button"]:focus-visible > rect {
 }
 
 .chart-heading h2 {
-  font-size: clamp(20px, 2vw, 28px);
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
   font-weight: 500;
 }
 
@@ -494,25 +550,25 @@ svg [role="button"]:focus-visible > rect {
 
 .chart-heading p {
   color: var(--muted-fg);
-  font-size: 11.5px;
+  font-size: 0.75rem;
   margin-top: 3px;
 }
 
 .view-switch {
   display: flex;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   border-radius: 10px;
   padding: 3px;
   background: hsl(232, 28%, 9%);
   flex-shrink: 0;
 }
 
-.view-switch button {
+.view-switch button:not(.btn) {
   padding: 7px 11px;
   border: 0;
   border-radius: 7px;
   background: transparent;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .view-switch button[aria-pressed="true"] {
@@ -521,6 +577,7 @@ svg [role="button"]:focus-visible > rect {
 }
 
 .chart-card {
+  position: relative;
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 20px;
@@ -537,6 +594,8 @@ svg [role="button"]:focus-visible > rect {
   overflow: clip;
   border-radius: 12px;
   touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .chart-viewport.is-zoomed {
@@ -638,7 +697,7 @@ svg [role="button"]:focus-visible > rect {
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 500;
   color: var(--muted-fg);
   pointer-events: none;
@@ -658,7 +717,7 @@ svg [role="button"]:focus-visible > rect {
   padding: 7px 14px;
   border: 1px solid var(--border-strong);
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 0.75rem;
   pointer-events: none;
   box-shadow: 0 10px 28px hsl(0 0% 0% / 0.5);
   z-index: 6;
@@ -671,13 +730,13 @@ svg [role="button"]:focus-visible > rect {
 
 .wheel-tooltip-dates {
   color: var(--accent);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
 }
 
 .wheel-tooltip-meta {
   color: var(--muted-fg);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .wheel-sibling-hint {
@@ -685,7 +744,7 @@ svg [role="button"]:focus-visible > rect {
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--muted-fg);
   display: flex;
   align-items: center;
@@ -708,27 +767,27 @@ svg [role="button"]:focus-visible > rect {
   margin: 8px 0 0;
   padding-top: 8px;
   border-top: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
-.chart-toolbar button {
+.chart-toolbar button:not(.btn) {
   min-height: 38px;
   padding: 7px 10px;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .zoom-controls {
   display: flex;
   align-items: center;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   border-radius: 8px;
   background: var(--bg-elevated);
 }
 
-.zoom-controls button {
+.zoom-controls button:not(.btn) {
   border: 0;
   background: transparent;
-  font-size: 18px;
+  font-size: 1.125rem;
   width: 36px;
 }
 
@@ -736,17 +795,34 @@ svg [role="button"]:focus-visible > rect {
   display: inline-block;
   min-width: 48px;
   text-align: center;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
+}
+
+.chart-breadcrumbs {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 4;
+  max-width: calc(50% - 76px);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 3px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-control);
+  background: hsl(230 30% 10% / 0.86);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .chart-breadcrumbs ol {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
   align-items: center;
   gap: 4px;
   list-style: none;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted-fg);
 }
 
@@ -754,6 +830,7 @@ svg [role="button"]:focus-visible > rect {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .chart-breadcrumbs button {
@@ -761,8 +838,11 @@ svg [role="button"]:focus-visible > rect {
   border: 0;
   color: var(--accent);
   cursor: pointer;
-  padding: 2px 4px;
+  min-height: 28px;
+  padding: 3px 6px;
   border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .chart-breadcrumbs button:hover {
@@ -776,7 +856,7 @@ svg [role="button"]:focus-visible > rect {
 
 .chart-empty {
   text-align: center;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--muted-fg);
   padding: 10px 6px 2px;
 }
@@ -786,7 +866,7 @@ svg [role="button"]:focus-visible > rect {
   justify-content: space-between;
   gap: 8px;
   color: var(--muted-fg);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 /* ─── SIDEBAR, PERSON CARD, LEGEND & INFO PANEL ───────────────────────────── */
@@ -831,31 +911,31 @@ svg [role="button"]:focus-visible > rect {
 }
 
 .person-card-name {
-  font-size: 20px;
+  font-size: 1.25rem;
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
 
 .person-card-sub {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--muted-fg);
 }
 
 .person-card-empty {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--muted-fg);
   font-style: italic;
 }
 
 .person-avatar {
-  width: 50px;
-  height: 50px;
+  width: 3.125rem;
+  height: 3.125rem;
   border-radius: 50%;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 17px;
+  font-size: 1.0625rem;
   font-weight: 700;
   color: var(--primary-fg);
 }
@@ -889,7 +969,7 @@ svg [role="button"]:focus-visible > rect {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 14px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .detail-row {
@@ -902,7 +982,7 @@ svg [role="button"]:focus-visible > rect {
 
 .detail-row-label {
   color: var(--muted-fg);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .detail-row-value {
@@ -920,12 +1000,15 @@ svg [role="button"]:focus-visible > rect {
 
 .relative-chip {
   background: hsl(234, 26%, 17%);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   border-radius: 999px;
   color: var(--fg);
   font: inherit;
-  font-size: 12px;
-  padding: 2px 9px;
+  font-size: 0.75rem;
+  min-height: 28px;
+  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
   cursor: pointer;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
@@ -936,7 +1019,7 @@ svg [role="button"]:focus-visible > rect {
 }
 
 .person-card-bio {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--muted-fg);
   font-style: italic;
   margin-bottom: 14px;
@@ -952,20 +1035,20 @@ svg [role="button"]:focus-visible > rect {
 }
 
 .person-card-center-note {
-  font-size: 12px;
+  font-size: 0.75rem;
   text-align: center;
   color: var(--muted-fg);
 }
 
 .relative-actions,
 .legend-disclosure {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .relative-actions summary,
 .legend-disclosure summary {
   padding: 10px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   border-radius: 8px;
   cursor: pointer;
 }
@@ -982,11 +1065,11 @@ svg [role="button"]:focus-visible > rect {
 }
 
 .legend-card {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .legend-title {
-  font-size: 14px;
+  font-size: 0.875rem;
   margin-bottom: 12px;
   display: flex;
   align-items: center;
@@ -1036,6 +1119,30 @@ svg [role="button"]:focus-visible > rect {
   flex-shrink: 0;
 }
 
+.info-panel-onboarding {
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.info-panel-onboarding h3 {
+  font-size: 1.0625rem;
+  line-height: 1.25;
+}
+
+.info-panel-onboarding p {
+  font-size: 0.75rem;
+  color: var(--muted-fg);
+  margin: 4px 0 10px;
+  line-height: 1.45;
+}
+
+.info-panel-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .info-panel-head {
   display: flex;
   align-items: flex-start;
@@ -1056,17 +1163,17 @@ svg [role="button"]:focus-visible > rect {
 }
 
 .info-panel-head h3 {
-  font-size: 18px;
+  font-size: 1.125rem;
   line-height: 1.2;
 }
 
 .info-panel-head p {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted-fg);
 }
 
 .info-panel-list {
-  font-size: 13px;
+  font-size: 0.8125rem;
   display: flex;
   flex-direction: column;
   gap: 9px;
@@ -1089,7 +1196,7 @@ svg [role="button"]:focus-visible > rect {
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .family-details p {
@@ -1128,7 +1235,7 @@ svg [role="button"]:focus-visible > rect {
 }
 
 .archive-modal h2 {
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 
 .archive-modal p {
@@ -1181,11 +1288,11 @@ svg [role="button"]:focus-visible > rect {
 
 .workspace-drawer h2 {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 1.5rem;
 }
 
 .workspace-drawer .drawer-intro {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--muted-fg);
   line-height: 1.6;
   margin: 8px 0 20px;
@@ -1220,14 +1327,14 @@ svg [role="button"]:focus-visible > rect {
 }
 
 .tool-group-heading strong {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 
 .tool-group-heading small {
   display: block;
   color: var(--muted-fg);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 400;
   margin-top: 4px;
 }
@@ -1242,7 +1349,7 @@ svg [role="button"]:focus-visible > rect {
   margin: 12px 0 0;
   padding: 0;
   border: 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .tool-group-content .archive-controls p {
@@ -1268,7 +1375,7 @@ svg [role="button"]:focus-visible > rect {
   max-width: 100%;
   margin-left: 8px;
   padding: 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   border-radius: 6px;
   background: var(--bg);
   color: var(--fg);
@@ -1286,7 +1393,7 @@ svg [role="button"]:focus-visible > rect {
 .person-fields label {
   display: grid;
   gap: 4px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .person-fields input,
@@ -1295,10 +1402,21 @@ svg [role="button"]:focus-visible > rect {
   width: 100%;
   padding: 9px;
   border-radius: 7px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   background: var(--bg-elevated);
   color: var(--fg);
   font: inherit;
+}
+
+.person-fields input[aria-invalid="true"],
+.person-fields select[aria-invalid="true"],
+.person-fields textarea[aria-invalid="true"] {
+  border-color: var(--warning);
+}
+
+.field-error {
+  margin: -4px 0 0 !important;
+  font-size: 0.75rem;
 }
 
 .person-fields .checkbox {
@@ -1309,6 +1427,9 @@ svg [role="button"]:focus-visible > rect {
 
 .person-fields .checkbox input {
   width: auto;
+  min-width: 18px;
+  min-height: 18px;
+  accent-color: var(--primary);
 }
 
 .person-picker {
@@ -1317,14 +1438,14 @@ svg [role="button"]:focus-visible > rect {
 }
 
 .people-search {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .people-search input {
   margin: 10px 0;
   width: 100%;
   min-height: 44px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   border-radius: 8px;
   background: var(--bg-elevated);
   color: var(--fg);
@@ -1348,13 +1469,18 @@ svg [role="button"]:focus-visible > rect {
 
 .people-results span {
   display: block;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted-fg);
 }
 
 .recovery-entry {
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
+}
+
+.recovery-footer {
+  margin-top: 14px;
+  justify-content: flex-end;
 }
 
 .record-section {
@@ -1404,12 +1530,46 @@ svg [role="button"]:focus-visible > rect {
 
 .load-state {
   max-width: 640px;
-  margin: 18vh auto;
-  padding: 24px;
+  margin: 0 auto;
+  padding: 14vh 24px 24px;
 }
 
 .load-state p {
   margin: 16px 0;
+}
+
+.workspace-skeleton .skeleton-pill {
+  width: 160px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--bg-surface);
+}
+
+.workspace-skeleton .skeleton-title {
+  width: 240px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--bg-surface);
+}
+
+.workspace-skeleton .skeleton-sub {
+  width: 200px;
+  height: 14px;
+  margin-top: 6px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+}
+
+.workspace-skeleton .skeleton-viewport {
+  background: radial-gradient(circle at 50% 78%, hsl(272 52% 24% / 0.22), transparent 58%);
+}
+
+.workspace-skeleton .skeleton-toolbar {
+  min-height: 46px;
+}
+
+.workspace-skeleton .skeleton-sidebar {
+  min-height: 320px;
 }
 
 .error-fallback {
@@ -1463,7 +1623,7 @@ svg [role="button"]:focus-visible > rect {
 }
 
 .account-popover p {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted-fg);
   padding: 4px 4px 12px;
   overflow-wrap: anywhere;
@@ -1494,14 +1654,14 @@ svg [role="button"]:focus-visible > rect {
 
 .mobile-person-summary > span {
   min-width: 0;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .mobile-person-summary small {
   display: block;
   color: var(--muted-fg);
   margin-top: 3px;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .mobile-person-summary button {
@@ -1525,16 +1685,35 @@ svg [role="button"]:focus-visible > rect {
   .workspace-tree {
     max-width: 200px;
   }
+  .chart-breadcrumbs {
+    max-width: calc(100% - 32px);
+  }
+  .chart-toolbar {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+  .chart-toolbar button:not(.btn) {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  .zoom-controls button:not(.btn) {
+    width: 32px;
+    padding: 4px;
+  }
+  .zoom-controls output {
+    min-width: 40px;
+  }
 }
 
 @media (max-width: 800px) {
   .workspace-header .header-inner {
-    padding: 10px 12px 4px;
-    gap: 10px;
+    padding: 8px 12px 4px;
+    gap: 6px 10px;
     flex-wrap: wrap;
   }
   .workspace-brand h1 {
-    font-size: 20px;
+    font-size: 1.25rem;
   }
   .workspace-tree,
   .workspace-tree-name {
@@ -1542,7 +1721,7 @@ svg [role="button"]:focus-visible > rect {
     flex: 1;
   }
   .workspace-tree select {
-    min-height: 40px;
+    min-height: 44px;
   }
   .workspace-count {
     margin-left: auto;
@@ -1554,18 +1733,19 @@ svg [role="button"]:focus-visible > rect {
   }
   .workspace-actions > button {
     flex: 1;
-    min-height: 42px;
+    min-height: 44px;
+    min-width: 44px;
   }
   .workspace-actions kbd {
     display: none;
   }
   .account-menu summary {
-    min-height: 42px;
+    min-height: 44px;
     display: flex;
     align-items: center;
   }
   .workspace-status {
-    padding: 4px 12px 8px;
+    padding: 2px 12px 6px;
     flex-wrap: wrap;
     gap: 4px 10px;
   }
@@ -1574,21 +1754,28 @@ svg [role="button"]:focus-visible > rect {
   }
   .app-layout {
     display: block;
-    padding: 12px 10px 4px;
+    padding: 10px 10px 4px;
+  }
+  .workspace-skeleton .app-sidebar {
+    display: none;
+  }
+  .chart-section {
+    gap: 8px;
   }
   .chart-heading {
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
   }
   .chart-heading h2 {
-    font-size: 23px;
+    font-size: 1.4375rem;
   }
   .view-switch {
     width: 100%;
   }
-  .view-switch button {
+  .view-switch button:not(.btn) {
     flex: 1;
-    min-height: 40px;
+    min-height: 44px;
+    min-width: 44px;
   }
   .chart-card {
     padding: 6px;
@@ -1598,24 +1785,44 @@ svg [role="button"]:focus-visible > rect {
     height: calc(100dvh - 430px);
     min-height: 280px;
   }
+  .chart-breadcrumbs {
+    position: static;
+    max-width: 100%;
+    margin-top: 8px;
+    padding: 6px 8px 2px;
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .chart-breadcrumbs ol {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+  .chart-breadcrumbs button {
+    min-height: 44px;
+  }
   .chart-toolbar {
     flex-wrap: nowrap;
     gap: 4px;
   }
-  .chart-toolbar button {
-    min-width: 40px;
+  .chart-toolbar button:not(.btn) {
+    min-width: 44px;
     min-height: 44px;
     padding: 6px;
   }
   .chart-toolbar .control-label {
     display: none;
   }
-  .zoom-controls button {
-    min-width: 34px;
-    width: 34px;
+  .zoom-controls button:not(.btn) {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
   }
   .zoom-controls output {
-    min-width: 44px;
+    min-width: 42px;
   }
   .wheel-tooltip {
     display: none;
@@ -1637,8 +1844,18 @@ svg [role="button"]:focus-visible > rect {
   }
   .workspace-drawer button,
   .archive-modal button,
-  .relative-actions summary {
+  .relative-actions summary,
+  .legend-disclosure summary {
     min-height: 44px;
+  }
+  .relative-actions summary,
+  .legend-disclosure summary {
+    padding: 12px;
+    line-height: 1.4;
+  }
+  .relative-chip {
+    min-height: 44px;
+    padding: 6px 12px;
   }
   .archive-modal {
     padding: 18px;

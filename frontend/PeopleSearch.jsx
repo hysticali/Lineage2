@@ -9,7 +9,7 @@ export default function PeopleSearch({ family, onSelect }) {
   return <section className="people-search" aria-label="Find a person">
     <div className="toolbar"><label htmlFor="people-search">Find a person</label><button onClick={() => { setQuery(''); setOffset(0); }}>Browse people</button></div>
     <input id="people-search" type="search" value={query} placeholder="Name, date, or birthplace" onChange={(event) => { setQuery(event.target.value); setOffset(0); }} />
-      <p role="status">{result.total} matching people</p>
+      <p role="status">{result.total} matching {result.total === 1 ? 'person' : 'people'}</p>
       {!result.total && <p>No people match. Try another name, date, or place.</p>}
       <ul className="people-results">{result.people.map((person) => <li key={person.id}><button onClick={() => onSelect(person.id)}><strong>{person.name}</strong><span>{[person.birth, person.birthplace].filter(Boolean).join(' · ')}</span></button></li>)}</ul>
       <div className="toolbar">

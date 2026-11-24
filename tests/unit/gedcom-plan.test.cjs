@@ -30,3 +30,10 @@ test('GEDCOM semantic validation rejects wrong record types, duplicate membershi
     [fixture.replace('urn:example:research', 'not-an-absolute-uri'), /absolute URI/],
   ]) assert.ok(planGedcom(source).report.errors.some(error => pattern.test(error)), pattern.toString());
 });
+
+test('GEDCOM displayName falls back to Unknown person when NAME contains only slashes or whitespace', () => {
+  const source = '\uFEFF0 HEAD\n1 GEDC\n2 VERS 7.0\n0 @I1@ INDI\n1 NAME //\n0 @I2@ INDI\n1 NAME   /   /  \n0 TRLR\n';
+  const plan = requireValid(planGedcom(source));
+  assert.equal(plan.report.errors.length, 0);
+  assert.deepEqual(plan.report.roots.map((r) => r.name), ['Unknown person', 'Unknown person']);
+});

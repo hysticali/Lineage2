@@ -22,8 +22,8 @@ const { resolveNavigationPerson } = navigationTools;
 import graph from '../src/domain/graph';
 import archiveTools from '../src/domain/archive';
 const { fingerprint } = archiveTools;
-import { loadLocalState, preserveRecovery } from './storage';
-import ArchiveControls from './ArchiveControls';
+import { loadLocalState, preserveRecovery, clearRecoveries } from './storage';
+import ArchiveControls, { StartNewTreeModal } from './ArchiveControls';
 
 import wheel from "../src/domain/wheel";
 const { getSiblings, getChildren } = wheel;
@@ -35,16 +35,28 @@ import Legend from "./Legend";
 import InfoPanel from "./InfoPanel";
 import ErrorBoundary from "./ErrorBoundary";
 
-const DEFAULT_ZOOM = 1.5;
+const DEFAULT_ZOOM = 1;
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
 function App({ source, trees, onSelectTree, accountControl }) {
   const canEdit = source.permissions?.canEdit !== false;
   const privateMode = ['private', 'shared'].includes(source.permissions?.mode);
   const [storage] = React.useState(() => {
-    if (!privateMode) return localStorage;
+    if (!privateMode) {
+      try {
+        const ls = window.localStorage;
+        if (ls) return ls;
+      } catch (err) {
+        const fail = () => { throw err; };
+        return { getItem: fail, setItem: fail, removeItem: fail };
+      }
+    }
     const memory = new Map();
-    return { getItem: key => memory.get(key) ?? null, setItem: (key, value) => memory.set(key, value) };
+    return {
+      getItem: key => memory.get(key) ?? null,
+      setItem: (key, value) => memory.set(key, value),
+      removeItem: key => memory.delete(key),
+    };
   });
   const [local] = React.useState(() => loadLocalState(storage, source));
   const [archive, setArchive] = React.useState(local.archive);
@@ -56,16 +68,27 @@ function App({ source, trees, onSelectTree, accountControl }) {
   }));
   const navigation = new URLSearchParams(location.search);
   const [aliases, setAliases] = React.useState(source.aliases || {});
+  const [navNotice, setNavNotice] = React.useState(() => {
+    const requested = navigation.get('person');
+    if (requested && !resolveNavigationPerson(family, source.aliases, requested, null)) {
+      return 'The linked person was not found in this archive. Showing the archive root instead.';
+    }
+    return '';
+  });
   const [centerId, setCenterId] = React.useState(() => resolveNavigationPerson(family, source.aliases, navigation.get('person'), resolveNavigationPerson(family, source.aliases, local.centerId, rootId)));
   const [zoom, setZoom] = React.useState(DEFAULT_ZOOM);
   const [viewReset, setViewReset] = React.useState(0);
   const [panel, setPanel] = React.useState(null);
   const [toolGroup, setToolGroup] = React.useState(null);
+  const [showNewTree, setShowNewTree] = React.useState(false);
   const mobile = useMobileLayout();
   const openTools = (group = null) => { setToolGroup(group); setPanel('tools'); };
   React.useEffect(() => {
     const search = event => {
-      if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.target.closest('input, textarea, select, [contenteditable]') && !document.querySelector('[role="dialog"]')) {
+      if (document.querySelector('[role="dialog"]')) return;
+      const isSlash = event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.target.closest('input, textarea, select, [contenteditable]');
+      const isModK = (event.key === 'k' || event.key === 'K') && (event.ctrlKey || event.metaKey) && !event.altKey;
+      if (isSlash || isModK) {
         event.preventDefault(); setPanel('people');
       }
     };
@@ -100,7 +123,12 @@ function App({ source, trees, onSelectTree, accountControl }) {
     writeNavigation(centerId, viewDirection, selectedPid);
   }, [centerId, viewDirection, selectedPid]);
 
+  const mounted = React.useRef(false);
   React.useLayoutEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
     // Focus with the committed view. Deferring this to an animation frame can
     // steal focus after the user has already moved to another chart person.
     document.querySelector('[data-center-person-id]')?.focus({ preventScroll: true });
@@ -182,6 +210,11 @@ function App({ source, trees, onSelectTree, accountControl }) {
 
   const center = family[centerId];
   const selectedPerson = selectedPid ? family[selectedPid] : null;
+  const activeTreeName = source.mode !== 'database' && archive.treeName ? archive.treeName : source.treeName;
+
+  React.useEffect(() => {
+    document.title = center?.name ? `${center.name} — Rootline` : 'Rootline — Interactive Lineage Atlas';
+  }, [center?.name]);
 
   function lineageExpansionFor(personId) {
     return graph.lineagePath(centerId, personId, family, 'ancestors');
@@ -299,6 +332,19 @@ function App({ source, trees, onSelectTree, accountControl }) {
 
   async function handleAddPerson(newId, formData, ctx) {
     const { personId, type } = ctx;
+    const trimmedName = String(formData.name || '').trim();
+    if (!ctx.existingPersonId && !trimmedName) {
+      throw new Error('Please enter a full name.');
+    }
+    const cleaned = {
+      ...formData,
+      name: trimmedName,
+      birth: String(formData.birth || '').trim(),
+      death: String(formData.death || '').trim(),
+      birthplace: String(formData.birthplace || '').trim(),
+      occupation: String(formData.occupation || '').trim(),
+      bio: String(formData.bio || '').trim(),
+    };
     if (source.mode === 'database') {
       if (fingerprint(archive) !== baseFingerprint) {
         throw new Error('This archive has local-only edits. Migrate them before editing the database, or discard them after downloading a backup.');
@@ -306,7 +352,7 @@ function App({ source, trees, onSelectTree, accountControl }) {
       setServerStatus('Saving to database…');
       try {
         const next = await savePerson(source.treeId, type === 'edit' ? personId : null, {
-          requestId: ctx.requestId, expectedRevision: revision, person: formData,
+          requestId: ctx.requestId, expectedRevision: revision, person: cleaned,
           type, targetId: personId, existingPersonId: ctx.existingPersonId || undefined,
           coParentId: ctx.coParentId || undefined, pedigree: ctx.pedigree, preferred: ctx.preferred,
           parentSlot: type === 'child' ? family[personId]?.gender === 'F' ? 'mother' : family[personId]?.gender === 'M' ? 'father' : undefined : undefined,
@@ -316,19 +362,19 @@ function App({ source, trees, onSelectTree, accountControl }) {
       return;
     }
     if (type === 'edit') {
-      setFamily((prev) => ({ ...prev, [personId]: { ...prev[personId], ...formData, name: formData.name.trim() } }));
+      setFamily((prev) => ({ ...prev, [personId]: { ...prev[personId], ...cleaned, name: trimmedName } }));
       return;
     }
 
     const newPerson = {
       id: newId,
-      name: formData.name.trim(),
-      gender: formData.gender,
-      ...(formData.birth && { birth: formData.birth }),
-      ...(formData.death && { death: formData.death }),
-      ...(formData.birthplace && { birthplace: formData.birthplace }),
-      ...(formData.occupation && { occupation: formData.occupation }),
-      ...(formData.bio && { bio: formData.bio }),
+      name: trimmedName,
+      gender: cleaned.gender,
+      ...(cleaned.birth && { birth: cleaned.birth }),
+      ...(cleaned.death && { death: cleaned.death }),
+      ...(cleaned.birthplace && { birthplace: cleaned.birthplace }),
+      ...(cleaned.occupation && { occupation: cleaned.occupation }),
+      ...(cleaned.bio && { bio: cleaned.bio }),
     };
 
     setFamily((prev) => {
@@ -442,10 +488,11 @@ function App({ source, trees, onSelectTree, accountControl }) {
       </> }] : []),
     ...(source.permissions?.canManage ? [{ id: 'sharing', title: 'Sharing', description: 'Members, invitations, and read-only links', content: <Sharing treeId={source.treeId} /> }] : []),
     ...(canEdit ? [{ id: 'browser', title: 'Browser drafts', description: source.mode === 'database' ? 'Local drafts, migration, and projection recovery' : 'Start a new tree, or back up and restore your browser archive', content: <>
-      <ArchiveControls archive={archive} source={source} saveStatus={status} notice={local.notice} recoveries={recoveries}
+      <ArchiveControls archive={archive} source={source} treeName={activeTreeName} saveStatus={status} notice={local.notice} recoveries={recoveries}
         onStartNew={source.mode !== 'database' ? (next => { replaceArchive(next, 'Before starting new family tree'); setPanel(null); }) : undefined}
         onRestore={next => { replaceArchive(next, 'Before backup restore'); setPanel(null); }}
-        onDiscard={() => { replaceArchive(loadedSource.current, 'Before discarding local edits'); setPanel(null); }} />
+        onDiscard={() => { replaceArchive(loadedSource.current, 'Before discarding local edits'); setPanel(null); }}
+        onClearRecoveries={() => setRecoveries(clearRecoveries(storage, local.key))} />
       {source.mode === 'database' && draft && <LocalMigration treeId={source.treeId} archive={archive}
         onBeforeApply={() => setRecoveries(preserveRecovery(storage, local.key, JSON.stringify({ archive, centerId }), 'Before database migration'))}
         onApplied={acceptToolServer} />}
@@ -454,6 +501,7 @@ function App({ source, trees, onSelectTree, accountControl }) {
   const details = <>
     {selectedPerson ? <>
       <PersonCard person={selectedPerson} isCenter={selectedPid === centerId} family={family} canEdit={canEdit} database={source.mode === 'database'}
+        inModal={mobile && panel === 'details'}
         onRecenter={id => { handleRecenter(id); if (mobile) setPanel(null); }}
         onSelectPerson={handleSelectRelative}
         onClose={() => { setSelectedPid(null); setSibAnchorPid(null); setPanel(null); }}
@@ -462,27 +510,34 @@ function App({ source, trees, onSelectTree, accountControl }) {
       {source.mode === 'database' && canEdit && <Btn full disabled={draft} onClick={() => { if (mobile) setPanel(null); setRecordPersonId(selectedPid); }}>Records and evidence</Btn>}
       {canEdit && privateMode && <Btn full disabled={draft} onClick={() => { if (mobile) setPanel(null); setPrivacyPerson(selectedPid); }}>Privacy and sharing</Btn>}
       <FamilyDetails personId={selectedPid} archive={archive} onSelectPerson={handleSelectRelative} />
-    </> : <InfoPanel canEdit={canEdit} />}
+    </> : <InfoPanel
+      canEdit={canEdit}
+      showOnboarding={source.mode !== 'database'}
+      isEmptyTree={stats.total <= 1}
+      onStartNewTree={() => { if (mobile) setPanel(null); setShowNewTree(true); }}
+      onImportGedcom={() => openTools('exchange')}
+    />}
     {canEdit && source.mode === 'database' && <button className="add-independent" onClick={() => { if (mobile) setPanel(null); setAddCtx({ type: 'person' }); }}>Add person</button>}
     <details className="legend-disclosure"><summary>Chart legend</summary><Legend viewDirection={viewDirection} /></details>
   </>;
 
   return <div className="workspace">
+    <a href="#main-content" className="skip-link">Skip to main content</a>
     <header className="workspace-header glass">
       <div className="header-inner">
         <div className="workspace-brand"><IcTree /><h1 className="fd">Rootline</h1></div>
         {source.mode === 'database' && !source.shared ? <label className="workspace-tree"><span className="sr-only">Tree</span>
           <select aria-label="Tree" value={source.treeId} onChange={event => onSelectTree(event.target.value)}>
             {(trees.length ? trees : [{ id: source.treeId, name: source.treeName }]).map(tree => <option key={tree.id} value={tree.id}>{tree.name}</option>)}
-          </select></label> : <span className="workspace-tree-name">{source.treeName}</span>}
-        <span className="workspace-count">{stats.total} people</span>
+          </select></label> : <span className="workspace-tree-name">{activeTreeName}</span>}
+        <span className="workspace-count">{stats.total} {stats.total === 1 ? 'person' : 'people'}</span>
         <nav className="workspace-actions" aria-label="Workspace">
-          <button onClick={() => setPanel('people')} title="Find a person (/)" aria-keyshortcuts="/">Find person <kbd aria-hidden="true">/</kbd></button>
+          <button onClick={() => setPanel('people')} title="Find a person (/ or Ctrl+K)" aria-keyshortcuts="/ Control+k Meta+k">Find person <kbd aria-hidden="true">/</kbd></button>
           <button onClick={() => openTools()}>Tree tools</button>
           {accountControl}
         </nav>
       </div>
-      <div className="workspace-status" aria-label="Archive status">
+      <div className="workspace-status" role="region" aria-label="Archive status">
         <span className="source-badge">{source.shared || !canEdit ? 'Read only' : privateMode ? 'Private workspace' : source.mode === 'database' ? 'Local database' : 'Browser archive'}</span>
         <span role="status" className={draft || saveStatus.startsWith('Not saved') || status.includes('failed') ? 'notice' : ''}>{status}</span>
         {draft && <button onClick={() => openTools('browser')}>Review draft</button>}
@@ -492,11 +547,17 @@ function App({ source, trees, onSelectTree, accountControl }) {
       </div>
     </header>
     {local.notice && <div className="workspace-warning" role="status"><span>{local.notice}</span></div>}
-    <main className="app-layout">
+    {navNotice && (
+      <div className="workspace-warning workspace-notice-bar" role="status">
+        <span>{navNotice}</span>
+        <button type="button" className="btn btn-ghost-sm" onClick={() => setNavNotice('')} aria-label="Dismiss notice">Dismiss</button>
+      </div>
+    )}
+    <main id="main-content" className="app-layout">
       <section className="chart-section">
         <div className="chart-heading">
           <div><h2 className="fd">{viewDirection === 'ancestors' ? 'The Lineage of ' : 'Descendants of '}<span>{center?.name}</span></h2>
-            <p>Click a person for details · Double-click to center</p></div>
+            <p>{mobile ? 'Tap a person for details' : 'Click a person for details · Double-click to center'}</p></div>
           <div className="view-switch" role="group" aria-label="View direction">
             <button aria-label="Show ancestors" aria-pressed={viewDirection === 'ancestors'} onClick={() => { if (viewDirection !== 'ancestors') handleToggleDirection(); }}>Ancestors</button>
             <button aria-label="Show descendants" aria-pressed={viewDirection === 'descendants'} onClick={() => { if (viewDirection !== 'descendants') handleToggleDirection(); }}>Descendants</button>
@@ -511,42 +572,48 @@ function App({ source, trees, onSelectTree, accountControl }) {
           </ChartViewport>
           {center && (viewDirection === 'ancestors' ? !center.motherId && !center.fatherId : getChildren(centerId, family).length === 0) &&
             <p className="chart-empty" role="status">No {viewDirection} recorded for {center.name}. {canEdit ? 'Select this person to add relatives.' : 'Only approved relationships are shown.'}</p>}
+          {centerHistory.length > 0 && (
+            <nav className="chart-breadcrumbs" aria-label="Lineage trail">
+              <ol>
+                {centerHistory.map((entry, idx) => {
+                  const next = centerHistory[idx + 1] || { id: centerId, direction: viewDirection };
+                  const sameAsNext = entry.id === next.id;
+                  const label = family[entry.id]?.name || 'Previous';
+                  return (
+                    <li key={`${entry.id}:${entry.direction}:${idx}`}>
+                      <button type="button" onClick={() => handleHistoryJump(idx)}>
+                        {sameAsNext ? `${label} (${entry.direction})` : label}
+                      </button>
+                      <span className="breadcrumb-sep" aria-hidden="true">›</span>
+                    </li>
+                  );
+                })}
+                <li aria-current="page">
+                  <span>
+                    {centerHistory.at(-1)?.id === centerId
+                      ? `${center?.name || 'Current'} (${viewDirection})`
+                      : center?.name || 'Current'}
+                  </span>
+                </li>
+              </ol>
+            </nav>
+          )}
         </div>
-        {centerHistory.length > 0 && (
-          <nav className="chart-breadcrumbs" aria-label="Lineage trail">
-            <ol>
-              {centerHistory.map((entry, idx) => {
-                const next = centerHistory[idx + 1] || { id: centerId, direction: viewDirection };
-                const sameAsNext = entry.id === next.id;
-                const label = family[entry.id]?.name || 'Previous';
-                return (
-                  <li key={`${entry.id}:${entry.direction}:${idx}`}>
-                    <button type="button" onClick={() => handleHistoryJump(idx)}>
-                      {sameAsNext ? `${label} (${entry.direction})` : label}
-                    </button>
-                    <span className="breadcrumb-sep" aria-hidden="true">›</span>
-                  </li>
-                );
-              })}
-              <li aria-current="page">
-                <span>
-                  {centerHistory.at(-1)?.id === centerId
-                    ? `${center?.name || 'Current'} (${viewDirection})`
-                    : center?.name || 'Current'}
-                </span>
-              </li>
-            </ol>
-          </nav>
-        )}
-        <div className="chart-footnote"><span>{stats.expanded} branches expanded</span><span>Zoom in, then drag to pan · Center wheel to return</span></div>
+        <div className="chart-footnote"><span>{stats.expanded} {stats.expanded === 1 ? 'branch' : 'branches'} expanded</span><span>Zoom in, then drag to pan · Center wheel to return</span></div>
         {mobile && <div className="mobile-person-summary"><span>{selectedPerson ? selectedPerson.name : 'Explore your family'}<small>{selectedPerson ? 'Selected individual' : 'Select a person in the wheel'}</small></span><button onClick={() => setPanel('details')}>Person details</button></div>}
       </section>
       {!mobile && <aside className="app-sidebar" aria-label="Person details">{details}</aside>}
     </main>
-    <footer className="workspace-footer">Rootline · {source.treeName}</footer>
+    <footer className="workspace-footer">Rootline · {activeTreeName}</footer>
     {panel === 'people' && <PeopleDrawer family={family} onSelect={id => handleRecenter(id, true)} onClose={() => setPanel(null)} />}
     {panel === 'tools' && <ToolsDrawer groups={groups} initialGroup={toolGroup} onClose={() => setPanel(null)} />}
     {panel === 'details' && mobile && <Modal title="Person details" variant="drawer" onClose={() => setPanel(null)}><div className="person-details-sheet">{details}</div></Modal>}
+    {showNewTree && source.mode !== 'database' && (
+      <StartNewTreeModal
+        onStartNew={(next) => { replaceArchive(next, 'Before starting new family tree'); setShowNewTree(false); }}
+        onClose={() => setShowNewTree(false)}
+      />
+    )}
     {privacyPerson && <PrivacyEditor treeId={source.treeId} person={family[privacyPerson]} revision={revision} onSaved={acceptServer} onClose={() => setPrivacyPerson(null)} />}
     {recordPersonId && <PersonRecords treeId={source.treeId} personId={recordPersonId} personName={family[recordPersonId]?.name || 'Person'} onSaved={acceptServer} onClose={() => setRecordPersonId(null)} />}
     {addCtx && <PersonEditor context={addCtx} family={family} onSubmit={handleAddPerson} database={source.mode === 'database'} onRefresh={refreshTree} onClose={() => setAddCtx(null)} />}
@@ -629,14 +696,42 @@ function Bootstrap({ session, shareToken, onSessionChange, accountControl }) {
     history.pushState(null, '', url);
     setSource(null); setTreeId(id);
   }} /></>;
-  return <main className="load-state">
-    <h1>Rootline</h1>
-    {error ? <><p role="alert">{error}</p><button onClick={() => setAttempt((value) => value + 1)}>Retry loading archive</button></> : <p role="status">Loading family archive…</p>}
-    {!shareToken && error && document.querySelector('meta[name="lineage-mode"]')?.content === 'database' && <>
-      <DatabaseRecovery onRestored={(id) => { setTreeId(id); setAttempt(value => value + 1); }} />
-      <GedcomExchange privateMode={session.mode === 'private'} onImported={(id) => { setTreeId(id); setAttempt(value => value + 1); }} />
-    </>}
-  </main>;
+  if (error) {
+    return <main className="load-state">
+      <h1>Rootline</h1>
+      <p role="alert">{error}</p>
+      <button type="button" className="btn btn-gradient" onClick={() => setAttempt((value) => value + 1)}>Retry loading archive</button>
+      {!shareToken && document.querySelector('meta[name="lineage-mode"]')?.content === 'database' && <>
+        <DatabaseRecovery onRestored={(id) => { setTreeId(id); setAttempt(value => value + 1); }} />
+        <GedcomExchange privateMode={session.mode === 'private'} onImported={(id) => { setTreeId(id); setAttempt(value => value + 1); }} />
+      </>}
+    </main>;
+  }
+  return <div className="workspace workspace-skeleton" aria-busy="true">
+    <header className="workspace-header glass">
+      <div className="header-inner">
+        <div className="workspace-brand"><IcTree /><h1 className="fd">Rootline</h1></div>
+        <div className="skeleton-pill" aria-hidden="true" />
+      </div>
+      <div className="workspace-status" role="region" aria-label="Archive status">
+        <span role="status">Loading family archive…</span>
+      </div>
+    </header>
+    <main id="main-content" className="app-layout">
+      <section className="chart-section">
+        <div className="chart-heading" aria-hidden="true">
+          <div><div className="skeleton-title" /><div className="skeleton-sub" /></div>
+        </div>
+        <div className="chart-card glass">
+          <div className="chart-viewport skeleton-viewport" aria-hidden="true" />
+          <div className="chart-toolbar skeleton-toolbar" aria-hidden="true" />
+        </div>
+      </section>
+      <aside className="app-sidebar" aria-hidden="true">
+        <div className="glass info-panel skeleton-sidebar" />
+      </aside>
+    </main>
+  </div>;
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
