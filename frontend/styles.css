@@ -554,6 +554,13 @@ svg [role="button"]:focus-visible > rect {
   margin-top: 3px;
 }
 
+.chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .view-switch {
   display: flex;
   border: 1px solid var(--border-control);
@@ -1679,6 +1686,10 @@ svg [role="button"]:focus-visible > rect {
   .chart-heading {
     flex-wrap: wrap;
   }
+  .chart-controls {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
   .workspace-actions kbd {
     display: none;
   }
@@ -1768,6 +1779,16 @@ svg [role="button"]:focus-visible > rect {
   }
   .chart-heading h2 {
     font-size: 1.4375rem;
+  }
+  .chart-controls {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chart-controls .view-switch {
+    flex: 1 1 156px;
+    width: auto;
+    min-width: 0;
   }
   .view-switch {
     width: 100%;
@@ -1859,5 +1880,444 @@ svg [role="button"]:focus-visible > rect {
   }
   .archive-modal {
     padding: 18px;
+  }
+}
+
+
+@media (max-width: 420px) {
+  .chart-controls .view-switch {
+    flex: 1 1 140px;
+  }
+  .view-switch button:not(.btn) {
+    padding: 7px 6px;
+    font-size: 0.725rem;
+  }
+}
+
+/* ─── BOTANICAL DAYLIGHT THEME ([data-theme="garden"]) ────────────────────── */
+:root[data-theme="garden"] {
+  --bg: #F3ECDC;
+  --bg-elevated: #FBF7EE;
+  --bg-surface: #EAE0C8;
+  --fg: #2A2A1E;
+  --muted-fg: #5A5642;
+  --muted: #E4D9BF;
+  --card: #FBF7EE;
+  --border: #D6C9A8;
+  --border-control: #857A5A;
+  --border-strong: #4E6A36;
+
+  --primary: #3D6633;
+  --primary-fg: #FFF9EC;
+  --accent: #A04A2B;
+  --maternal: #A3405F;
+  --paternal: #475A96;
+  --warning: #77571C;
+
+  --gen-0: #E2A72E;
+  --gen-1: #9A4A2C;
+  --gen-2: #7B3F5C;
+  --gen-3: #4C4E8A;
+  --gen-4: #2E6964;
+  --gen-5: #4A6829;
+  --gen-6: #77571C;
+
+  --garden-stem: #4E6A36;
+  --garden-stem-glow: #B7811E;
+  --garden-leaf: #6E8B4C;
+  --garden-leaf-stroke: #3F5A2B;
+  --garden-g1: #9A4A2C;
+  --garden-g2: #7B3F5C;
+  --garden-g3: #4C4E8A;
+  --garden-g4: #2E6964;
+  --garden-g5: #4A6829;
+  --garden-g6: #77571C;
+  --garden-spouse: #8C3F63;
+  --garden-petal-text: #FFF9EC;
+  --garden-stamen: #E2A72E;
+  --garden-stamen-ring: #77571C;
+  --garden-bud-fill: #E1E6CC;
+  --garden-bud-stroke: #5F7442;
+  --garden-focus-inner: #FFF9EC;
+  --garden-focus-outer: #1E3A28;
+
+  --grad-center: linear-gradient(135deg, #3D6633 0%, #4E6A36 100%);
+  --grad-bg: radial-gradient(
+    ellipse at top,
+    #FBF7EE 0%,
+    #F3ECDC 55%,
+    #EAE0C8 100%
+  );
+  --shadow: 0 18px 40px -16px hsl(34 30% 20% / 0.24);
+}
+
+[data-theme="garden"] .glass {
+  background: hsl(42 54% 96% / 0.88);
+  border-color: var(--border);
+}
+
+[data-theme="garden"] .btn-default:hover:not(:disabled) {
+  background: #E2D7BC;
+  border-color: var(--border-strong);
+}
+
+[data-theme="garden"] .btn-gradient {
+  color: var(--primary-fg);
+}
+
+[data-theme="garden"] .btn-gradient:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+[data-theme="garden"] .btn-outline:hover:not(:disabled) {
+  background: #EAE0C8;
+  border-color: var(--border-strong);
+}
+
+[data-theme="garden"] .btn-danger {
+  background: #9E2F2F;
+  border-color: #7D2222;
+  color: #FFF9EC;
+}
+
+[data-theme="garden"] .btn-danger:hover:not(:disabled) {
+  background: #842424;
+  border-color: #651A1A;
+}
+
+[data-theme="garden"] .btn-ghost:hover:not(:disabled),
+[data-theme="garden"] .btn-ghost-sm:hover:not(:disabled) {
+  color: var(--fg);
+  background: #E4D9BF;
+}
+
+[data-theme="garden"] .tag {
+  background: #EAE0C8;
+  color: var(--fg);
+}
+
+[data-theme="garden"] .tag-outline {
+  background: transparent;
+  border-color: var(--border-control);
+  color: var(--muted-fg);
+}
+
+[data-theme="garden"] .workspace-actions > button:hover:not(:disabled),
+[data-theme="garden"] .workspace-status button:hover:not(:disabled),
+[data-theme="garden"] .chart-toolbar button:not(.btn):hover:not(:disabled),
+[data-theme="garden"] .tool-group-heading:hover,
+[data-theme="garden"] .add-independent:hover,
+[data-theme="garden"] .archive-modal button:not(.btn):not(.relative-chip):hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: #E4D9BF;
+}
+
+[data-theme="garden"] .source-badge {
+  color: var(--primary);
+}
+
+[data-theme="garden"] .view-switch {
+  background: #EAE0C8;
+  border-color: var(--border-control);
+}
+
+[data-theme="garden"] .view-switch button:not(.btn) {
+  color: var(--fg);
+}
+
+[data-theme="garden"] .view-switch button[aria-pressed="true"] {
+  background: var(--primary);
+  color: var(--primary-fg);
+}
+
+[data-theme="garden"] .wheel-ambient-glow {
+  background: radial-gradient(circle, hsl(42 74% 64% / 0.24) 0%, hsl(92 36% 62% / 0.1) 46%, transparent 70%);
+}
+
+[data-theme="garden"] .wheel-label {
+  text-shadow: none;
+}
+
+[data-theme="garden"] .wheel-tooltip {
+  background: hsl(42 64% 97% / 0.96);
+  border-color: var(--border-strong);
+  color: var(--fg);
+  box-shadow: 0 10px 28px hsl(34 28% 20% / 0.18);
+}
+
+[data-theme="garden"] .wheel-direction-badge {
+  background: hsl(42 64% 97% / 0.92);
+  border-color: var(--border-control);
+  color: var(--fg);
+}
+
+[data-theme="garden"] .wheel-sibling-hint {
+  color: var(--muted-fg);
+}
+
+[data-theme="garden"] .wheel-sibling-dash {
+  border-top: 1px dashed var(--garden-stem);
+}
+
+[data-theme="garden"] .chart-breadcrumbs {
+  background: hsl(42 54% 96% / 0.92);
+  border-color: var(--border-control);
+}
+
+[data-theme="garden"] .chart-breadcrumbs button:hover {
+  background: #EAE0C8;
+}
+
+[data-theme="garden"] .relative-chip {
+  background: #EAE0C8;
+  border-color: var(--border-control);
+  color: var(--fg);
+}
+
+[data-theme="garden"] .relative-chip:hover {
+  border-color: var(--border-strong);
+  background: #DDE4CF;
+}
+
+[data-theme="garden"] .person-bio {
+  border-left: 2px solid var(--garden-stem);
+}
+
+[data-theme="garden"] .info-panel-icon {
+  background: hsl(108 33% 30% / 0.12);
+  color: var(--primary);
+}
+
+[data-theme="garden"] .modal-overlay {
+  background: hsl(34 24% 12% / 0.48);
+}
+
+[data-theme="garden"] .drawer-overlay {
+  background: hsl(34 24% 12% / 0.32);
+}
+
+[data-theme="garden"] .workspace-skeleton .skeleton-viewport {
+  background: radial-gradient(circle at 50% 78%, hsl(92 34% 48% / 0.16), transparent 58%);
+}
+
+[data-theme="garden"] svg [role="button"]:focus-visible > path,
+[data-theme="garden"] svg [role="button"]:focus-visible > circle,
+[data-theme="garden"] svg [role="button"]:focus-visible > rect {
+  stroke: var(--garden-focus-outer) !important;
+  stroke-width: 3px !important;
+  filter: drop-shadow(0 0 2px var(--garden-focus-inner)) drop-shadow(0 0 5px var(--garden-focus-outer));
+}
+
+/* ─── GARDEN LEGEND SWATCHES ──────────────────────────────────────────────── */
+.legend-swatch-stamen {
+  border-radius: 50%;
+  border: 1.5px solid var(--garden-stamen-ring, #77571C);
+}
+
+.legend-swatch-petal {
+  border-radius: 999px 999px 999px 2px;
+}
+
+.legend-swatch-stem {
+  width: 20px;
+  height: 3px;
+  border-radius: 99px;
+  background: var(--garden-stem, #4E6A36);
+  flex-shrink: 0;
+}
+
+.legend-swatch-spouse {
+  width: 14px;
+  height: 10px;
+  border-radius: 999px 2px 999px 2px;
+  background: var(--garden-spouse, #8C3F63);
+  flex-shrink: 0;
+}
+
+.legend-swatch-bud {
+  width: 12px;
+  height: 12px;
+  border-radius: 50% 50% 50% 2px;
+  background: var(--garden-bud-fill, #E1E6CC);
+  border: 1.5px dashed var(--garden-bud-stroke, #5F7442);
+  flex-shrink: 0;
+}
+
+[data-theme="garden"] .legend-swatch-dashed {
+  background: hsl(18 56% 39% / 0.25);
+  border: 1.5px dashed var(--garden-g1);
+}
+
+[data-theme="garden"] .legend-swatch-more {
+  background: var(--garden-stem);
+}
+
+/* ─── BOTANICAL GARDEN SVG & ORGANIC MOTION ───────────────────────────────── */
+.garden-view {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.garden-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.garden-ambient-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 54%,
+    hsl(42 80% 62% / 0.24) 0%,
+    hsl(94 38% 58% / 0.12) 42%,
+    transparent 68%
+  );
+  filter: blur(36px);
+}
+
+@keyframes garden-stem-grow {
+  from {
+    stroke-dashoffset: 1;
+    opacity: 0.2;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes garden-petal-bloom {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.garden-stem {
+  fill: none;
+  stroke: var(--garden-stem, #4E6A36);
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: garden-stem-grow 380ms cubic-bezier(0.22, 1, 0.36, 1) var(--stem-delay, 0ms) backwards;
+  transition: stroke 180ms ease, stroke-width 180ms ease, filter 180ms ease;
+}
+
+.garden-stem.is-trail {
+  stroke: var(--garden-stem-glow, #B7811E);
+  filter: drop-shadow(0 0 6px hsl(39 72% 42% / 0.55));
+}
+
+.garden-leaf {
+  fill: var(--garden-leaf, #6E8B4C);
+  stroke: var(--garden-leaf-stroke, #3F5A2B);
+  stroke-width: 1.2;
+  pointer-events: none;
+}
+
+.garden-petal {
+  cursor: pointer;
+  outline: none;
+}
+
+.garden-petal-shape {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: garden-petal-bloom 300ms cubic-bezier(0.34, 1.3, 0.64, 1) var(--bloom-delay, 0ms) backwards;
+  transition: filter 180ms ease, opacity 180ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.garden-petal:hover .garden-petal-shape,
+.garden-petal.is-hovered .garden-petal-shape,
+.garden-petal.is-selected .garden-petal-shape {
+  filter: brightness(1.06) drop-shadow(0 6px 12px hsl(34 32% 18% / 0.24));
+  transform: scale(1.04);
+}
+
+.garden-petal.is-sibling .garden-petal-shape,
+.garden-petal.is-sibling .garden-petal-outline {
+  stroke-dasharray: 5 3;
+}
+
+.garden-petal.is-dimmed {
+  opacity: 0.56;
+  transition: opacity 180ms ease;
+}
+
+.garden-petal-vein,
+.garden-petal-label,
+.garden-bud-label,
+.garden-side-tag {
+  pointer-events: none;
+  font-family: var(--font-sans);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.garden-sprout-tendril {
+  cursor: pointer;
+}
+
+.garden-bud {
+  cursor: pointer;
+  outline: none;
+  transition: filter 160ms ease, opacity 160ms ease;
+}
+
+.garden-bud:hover,
+.garden-bud.is-hovered {
+  filter: brightness(1.05) drop-shadow(0 4px 10px hsl(90 36% 24% / 0.24));
+}
+
+.garden-spouse,
+.garden-hub {
+  cursor: pointer;
+  outline: none;
+  transition: filter 180ms ease;
+}
+
+.garden-spouse:hover,
+.garden-hub:hover {
+  filter: drop-shadow(0 6px 12px hsl(34 34% 18% / 0.24));
+}
+
+.garden-label {
+  pointer-events: none;
+  font-family: var(--font-sans);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.garden-lift-layer {
+  pointer-events: none;
+}
+
+.garden-petal:focus-visible .garden-petal-shape,
+.garden-petal:focus-visible .garden-petal-outline,
+.garden-hub:focus-visible .hub-outer,
+.garden-hub:focus-visible .garden-hub-disc,
+.garden-bud:focus-visible > path,
+.garden-bud:focus-visible .garden-bud-shape,
+.garden-spouse:focus-visible > path,
+.garden-spouse:focus-visible .garden-spouse-shape {
+  stroke: var(--garden-focus-outer, #1E3A28) !important;
+  stroke-width: 3.2px !important;
+  filter: drop-shadow(0 0 2px var(--garden-focus-inner, #FFF9EC)) drop-shadow(0 0 5px var(--garden-focus-outer, #1E3A28));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .garden-stem,
+  .garden-petal-shape {
+    animation: none !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

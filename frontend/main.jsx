@@ -30,12 +30,25 @@ const { getSiblings, getChildren } = wheel;
 
 import { IcTree } from "./icons";
 import LineageWheel from "./LineageWheel";
+import BotanicalGarden from "./BotanicalGarden";
 import { PersonCard, Btn } from "./PersonCard";
 import Legend from "./Legend";
 import InfoPanel from "./InfoPanel";
 import ErrorBoundary from "./ErrorBoundary";
 
 const DEFAULT_ZOOM = 1;
+const CHART_VIEW_STORAGE_KEY = 'rootline:chart-view';
+
+function readInitialChartView(searchParams) {
+  const fromUrl = searchParams.get('chart');
+  if (fromUrl === 'garden') return 'garden';
+  if (fromUrl === 'atlas') return 'atlas';
+  try {
+    const saved = window.localStorage?.getItem(CHART_VIEW_STORAGE_KEY);
+    if (saved === 'garden') return 'garden';
+  } catch {}
+  return 'atlas';
+}
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
 function App({ source, trees, onSelectTree, accountControl }) {
@@ -98,6 +111,8 @@ function App({ source, trees, onSelectTree, accountControl }) {
   const [selectedPid, setSelectedPid] = React.useState(() => resolveNavigationPerson(family, source.aliases, navigation.get('selected')));
   const [sibAnchorPid, setSibAnchorPid] = React.useState(null);
   const [viewDirection, setViewDirection] = React.useState(navigation.get('view') === 'descendants' ? 'descendants' : 'ancestors');
+  const [chartView, setChartView] = React.useState(() => readInitialChartView(navigation));
+  const [theme, setTheme] = React.useState(() => readInitialChartView(navigation));
   const [centerHistory, setCenterHistory] = React.useState([]);
   const [addCtx, setAddCtx] = React.useState(null);
   const [recordPersonId, setRecordPersonId] = React.useState(null);
@@ -109,19 +124,39 @@ function App({ source, trees, onSelectTree, accountControl }) {
   const [serverStatus, setServerStatus] = React.useState(source.mode === 'database' ? 'Loaded from database' : '');
   const loadedSource = React.useRef({ rootId: source.rootId, family: source.family, ...(source.families && { families: source.families }) });
 
-  function writeNavigation(id, direction, selected, push = false) {
+  function handleSelectChartView(nextView) {
+    const normalized = nextView === 'garden' ? 'garden' : 'atlas';
+    setChartView(normalized);
+    setTheme(normalized);
+    setZoom(DEFAULT_ZOOM);
+    try {
+      window.localStorage?.setItem(CHART_VIEW_STORAGE_KEY, normalized);
+    } catch {}
+  }
+
+  React.useLayoutEffect(() => {
+    if (theme === 'garden') {
+      document.documentElement.dataset.theme = 'garden';
+    } else {
+      delete document.documentElement.dataset.theme;
+    }
+  }, [theme]);
+
+  function writeNavigation(id, direction, selected, push = false, chart = chartView) {
     const url = new URL(location.href);
     if (source.mode === 'database' && !source.shared) url.searchParams.set('tree', source.treeId);
     url.searchParams.set('person', id);
     url.searchParams.set('view', direction);
     if (selected) url.searchParams.set('selected', selected);
     else url.searchParams.delete('selected');
+    if (chart === 'garden') url.searchParams.set('chart', 'garden');
+    else url.searchParams.delete('chart');
     history[push ? 'pushState' : 'replaceState'](null, '', url);
   }
 
   React.useLayoutEffect(() => {
-    writeNavigation(centerId, viewDirection, selectedPid);
-  }, [centerId, viewDirection, selectedPid]);
+    writeNavigation(centerId, viewDirection, selectedPid, false, chartView);
+  }, [centerId, viewDirection, selectedPid, chartView]);
 
   const mounted = React.useRef(false);
   React.useLayoutEffect(() => {
@@ -141,6 +176,9 @@ function App({ source, trees, onSelectTree, accountControl }) {
       setCenterId(resolveNavigationPerson(family, aliases, params.get('person'), rootId));
       setViewDirection(params.get('view') === 'descendants' ? 'descendants' : 'ancestors');
       setSelectedPid(resolveNavigationPerson(family, aliases, params.get('selected')));
+      const poppedChart = params.get('chart') === 'garden' ? 'garden' : 'atlas';
+      setChartView(poppedChart);
+      setTheme(poppedChart);
       setExpanded(new Set()); setSibAnchorPid(null); setCenterHistory([]);
     }
     addEventListener('popstate', pop);
@@ -514,12 +552,14 @@ function App({ source, trees, onSelectTree, accountControl }) {
       canEdit={canEdit}
       showOnboarding={source.mode !== 'database'}
       isEmptyTree={stats.total <= 1}
+      chartView={chartView}
       onStartNewTree={() => { if (mobile) setPanel(null); setShowNewTree(true); }}
       onImportGedcom={() => openTools('exchange')}
     />}
     {canEdit && source.mode === 'database' && <button className="add-independent" onClick={() => { if (mobile) setPanel(null); setAddCtx({ type: 'person' }); }}>Add person</button>}
-    <details className="legend-disclosure"><summary>Chart legend</summary><Legend viewDirection={viewDirection} /></details>
+    <details className="legend-disclosure"><summary>Chart legend</summary><Legend viewDirection={viewDirection} chartView={chartView} /></details>
   </>;
+  const ChartComponent = chartView === 'garden' ? BotanicalGarden : LineageWheel;
 
   return <div className="workspace">
     <a href="#main-content" className="skip-link">Skip to main content</a>
@@ -558,14 +598,20 @@ function App({ source, trees, onSelectTree, accountControl }) {
         <div className="chart-heading">
           <div><h2 className="fd">{viewDirection === 'ancestors' ? 'The Lineage of ' : 'Descendants of '}<span>{center?.name}</span></h2>
             <p>{mobile ? 'Tap a person for details' : 'Click a person for details · Double-click to center'}</p></div>
-          <div className="view-switch" role="group" aria-label="View direction">
-            <button aria-label="Show ancestors" aria-pressed={viewDirection === 'ancestors'} onClick={() => { if (viewDirection !== 'ancestors') handleToggleDirection(); }}>Ancestors</button>
-            <button aria-label="Show descendants" aria-pressed={viewDirection === 'descendants'} onClick={() => { if (viewDirection !== 'descendants') handleToggleDirection(); }}>Descendants</button>
+          <div className="chart-controls">
+            <div className="view-switch" role="group" aria-label="View direction">
+              <button aria-label="Show ancestors" aria-pressed={viewDirection === 'ancestors'} onClick={() => { if (viewDirection !== 'ancestors') handleToggleDirection(); }}>Ancestors</button>
+              <button aria-label="Show descendants" aria-pressed={viewDirection === 'descendants'} onClick={() => { if (viewDirection !== 'descendants') handleToggleDirection(); }}>Descendants</button>
+            </div>
+            <div className="view-switch theme-switch" role="group" aria-label="Chart theme">
+              <button type="button" aria-label="Midnight Atlas wheel view" aria-pressed={chartView === 'atlas'} onClick={() => handleSelectChartView('atlas')}>Atlas</button>
+              <button type="button" aria-label="Botanical Garden flower view" aria-pressed={chartView === 'garden'} onClick={() => handleSelectChartView('garden')}>Garden</button>
+            </div>
           </div>
         </div>
         <div className="chart-card glass">
-          <ChartViewport zoom={zoom} onZoom={setZoom} centerKey={`${centerId}:${viewDirection}:${viewReset}`} canGoBack={centerHistory.length > 0} onBack={handleHistoryBack} onReset={handleReset}>
-            <LineageWheel centerId={centerId} family={family} expanded={expanded} selectedPid={selectedPid} sibAnchorPid={sibAnchorPid}
+          <ChartViewport zoom={zoom} onZoom={setZoom} centerKey={`${centerId}:${viewDirection}:${chartView}:${viewReset}`} canGoBack={centerHistory.length > 0} onBack={handleHistoryBack} onReset={handleReset}>
+            <ChartComponent centerId={centerId} family={family} expanded={expanded} selectedPid={selectedPid} sibAnchorPid={sibAnchorPid}
               viewDirection={viewDirection} canEdit={canEdit} onWedgeClick={handleWedgeClick} onWedgeDoubleClick={handleRecenter}
               onEmptySlotClick={(childId, slot) => setAddCtx({ personId: childId, type: slot })}
               onCenterClick={() => { setSelectedPid(centerId); setSibAnchorPid(null); }} onSpouseClick={handleSpouseClick} />
@@ -599,8 +645,8 @@ function App({ source, trees, onSelectTree, accountControl }) {
             </nav>
           )}
         </div>
-        <div className="chart-footnote"><span>{stats.expanded} {stats.expanded === 1 ? 'branch' : 'branches'} expanded</span><span>Zoom in, then drag to pan · Center wheel to return</span></div>
-        {mobile && <div className="mobile-person-summary"><span>{selectedPerson ? selectedPerson.name : 'Explore your family'}<small>{selectedPerson ? 'Selected individual' : 'Select a person in the wheel'}</small></span><button onClick={() => setPanel('details')}>Person details</button></div>}
+        <div className="chart-footnote"><span>{stats.expanded} {stats.expanded === 1 ? 'branch' : 'branches'} expanded</span><span>Zoom in, then drag to pan · Center {chartView === 'garden' ? 'garden' : 'wheel'} to return</span></div>
+        {mobile && <div className="mobile-person-summary"><span>{selectedPerson ? selectedPerson.name : 'Explore your family'}<small>{selectedPerson ? 'Selected individual' : chartView === 'garden' ? 'Select a person in the garden' : 'Select a person in the wheel'}</small></span><button onClick={() => setPanel('details')}>Person details</button></div>}
       </section>
       {!mobile && <aside className="app-sidebar" aria-label="Person details">{details}</aside>}
     </main>
