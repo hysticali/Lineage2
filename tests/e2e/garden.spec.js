@@ -145,4 +145,91 @@ test.describe('Botanical Garden theme and view', () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);
   });
+
+  test('renders petal lift behind golden seed-heads & hub, expands cleanly on hover, and keeps Gen 1 & 2 names untruncated', async ({ page }) => {
+    await page.goto('/?chart=garden');
+    await expect(page.locator('.garden-svg')).toBeVisible();
+
+    // 1. SVG paint/DOM order: .garden-petal-lift precedes .garden-blooms-layer and .garden-hub
+    const domOrder = await page.evaluate(() => {
+      const svg = document.querySelector('.garden-svg');
+      const petalsLayer = svg?.querySelector('.garden-petals-layer');
+      const petalLift = svg?.querySelector('.garden-petal-lift');
+      const bloomsLayer = svg?.querySelector('.garden-blooms-layer');
+      const hub = svg?.querySelector('.garden-hub');
+      if (!petalsLayer || !petalLift || !bloomsLayer || !hub) {
+        return { missing: true };
+      }
+      return {
+        missing: false,
+        liftAfterPetals: Boolean(petalsLayer.compareDocumentPosition(petalLift) & Node.DOCUMENT_POSITION_FOLLOWING),
+        liftBeforeBlooms: Boolean(petalLift.compareDocumentPosition(bloomsLayer) & Node.DOCUMENT_POSITION_FOLLOWING),
+        liftBeforeHub: Boolean(petalLift.compareDocumentPosition(hub) & Node.DOCUMENT_POSITION_FOLLOWING),
+        liftPointerEvents: getComputedStyle(petalLift).pointerEvents,
+      };
+    });
+    expect(domOrder.missing).toBe(false);
+    expect(domOrder.liftAfterPetals).toBe(true);
+    expect(domOrder.liftBeforeBlooms).toBe(true);
+    expect(domOrder.liftBeforeHub).toBe(true);
+    expect(domOrder.liftPointerEvents).toBe('none');
+
+    // 2. Gen 1 & Gen 2 names render untruncated inside petals
+    const expectedPetals = [
+      { id: 'elena', parts: ['Elena', 'Vasquez'] },
+      { id: 'marcus', parts: ['Marcus', 'Hartwell'] },
+      { id: 'lucia', parts: ['Lucia', 'Moreno'] },
+      { id: 'miguel', parts: ['Miguel', 'Vasquez'] },
+      { id: 'rosalind', parts: ['Rosalind', 'Carter'] },
+      { id: 'samuel', parts: ['Samuel', 'Hartwell'] },
+    ];
+    for (const { id, parts } of expectedPetals) {
+      const label = page.locator(`.garden-petals-layer .garden-petal[data-person-id="${id}"] .garden-petal-label`).first();
+      await expect(label).toBeVisible();
+      const text = (await label.textContent()) || '';
+      expect(text).not.toContain('…');
+      for (const part of parts) {
+        expect(text).toContain(part);
+      }
+    }
+
+    // 3. Hovering a petal activates expanded petal inside .garden-petal-lift (pointer-events: none) and clicking selects cleanly
+    const elenaPetal = page.locator('.garden-petals-layer .garden-petal[data-person-id="elena"]').first();
+    await elenaPetal.hover();
+    const expandedInLift = page.locator('.garden-petal-lift .garden-petal-expand');
+    await expect(expandedInLift).toHaveCount(1);
+    await expect(expandedInLift).toContainText('Elena');
+    await expect(expandedInLift).toContainText('Vasquez');
+    expect(
+      await page.locator('.garden-petal-lift').evaluate((el) => getComputedStyle(el).pointerEvents),
+    ).toBe('none');
+
+    // Clicking while hovered still selects cleanly without stalling
+    await elenaPetal.click();
+    await expect(page.getByRole('heading', { name: 'Elena Vasquez', exact: true })).toBeVisible();
+
+    // Hover & click Gen 2 Lucia Moreno to sprout Gen 3, then hover Gen 3 Carmen Delgado
+    const luciaPetal = page.locator('.garden-petals-layer .garden-petal[data-person-id="lucia"]').first();
+    await luciaPetal.hover();
+    await expect(expandedInLift).toHaveCount(1);
+    await expect(expandedInLift).toContainText('Lucia');
+    await expect(expandedInLift).toContainText('Moreno');
+    await luciaPetal.click();
+    await expect(page.getByRole('heading', { name: 'Lucia Moreno', exact: true })).toBeVisible();
+    await expect.poll(() => page.locator('.garden-petal[data-generation="3"]').count()).toBeGreaterThan(0);
+
+    // Paint order still holds when petals are selected & Gen 3 blooms are present
+    const orderAfterSprout = await page.evaluate(() => {
+      const svg = document.querySelector('.garden-svg');
+      const petalLift = svg?.querySelector('.garden-petal-lift');
+      const bloomsLayer = svg?.querySelector('.garden-blooms-layer');
+      const hub = svg?.querySelector('.garden-hub');
+      return {
+        liftBeforeBlooms: Boolean(petalLift && bloomsLayer && (petalLift.compareDocumentPosition(bloomsLayer) & Node.DOCUMENT_POSITION_FOLLOWING)),
+        liftBeforeHub: Boolean(petalLift && hub && (petalLift.compareDocumentPosition(hub) & Node.DOCUMENT_POSITION_FOLLOWING)),
+      };
+    });
+    expect(orderAfterSprout.liftBeforeBlooms).toBe(true);
+    expect(orderAfterSprout.liftBeforeHub).toBe(true);
+  });
 });

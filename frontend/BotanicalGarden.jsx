@@ -36,75 +36,491 @@ function stemStrokeWidth(generation) {
   return 1.75;
 }
 
-function computePetalLabelLayout(petal) {
+function charWidthEm(ch) {
+  if ("ijlI|!.,:;'` ".includes(ch)) return 0.3;
+  if ("ftJr()[]{}\"-".includes(ch)) return 0.39;
+  if ("mwMW@".includes(ch)) return 0.86;
+  if (ch === "…") return 0.82;
+  if (ch >= "A" && ch <= "Z") return 0.68;
+  if (ch >= "0" && ch <= "9") return 0.56;
+  return 0.55;
+}
+
+function estimateTextWidthPx(text, fontSize, weight = 600) {
+  const s = String(text || "");
+  let em = 0;
+  for (let i = 0; i < s.length; i += 1) {
+    em += charWidthEm(s[i]);
+  }
+  const weightMul = weight >= 700 ? 1.04 : weight >= 600 ? 1 : 0.96;
+  return em * fontSize * weightMul;
+}
+
+function fitLineToWidth(text, availW, maxFontSize, minFontSize, weight) {
+  const clean = String(text || "").trim();
+  if (!clean) return { text: "", fontSize: maxFontSize, truncated: false };
+  const fullW = estimateTextWidthPx(clean, maxFontSize, weight);
+  if (fullW <= availW) {
+    return { text: clean, fontSize: maxFontSize, truncated: false };
+  }
+  const neededSize = maxFontSize * (availW / fullW);
+  if (neededSize >= minFontSize) {
+    return {
+      text: clean,
+      fontSize: Math.round(neededSize * 2) / 2,
+      truncated: false,
+    };
+  }
+  let cut = clean.length - 1;
+  while (
+    cut > 1 &&
+    estimateTextWidthPx(`${clean.slice(0, cut).trimEnd()}…`, minFontSize, weight) > availW
+  ) {
+    cut -= 1;
+  }
+  const clipped = `${clean.slice(0, Math.max(1, cut)).trimEnd()}…`;
+  return { text: clipped, fontSize: minFontSize, truncated: true, keptChars: Math.max(1, cut) };
+}
+
+function petalBellyMetrics(petal, scale = 1) {
+  const halfW = (petal.halfW || 24) * scale;
+  const len = (petal.len || 60) * scale;
+  const baseR =
+    typeof petal.baseR === "number"
+      ? petal.baseR
+      : petal.generation === 1
+        ? 48
+        : petal.generation === 2
+          ? 14.5
+          : 10;
+  const visLen = Math.max(24, len - baseR);
+  // Safe inscribed ellipse inside the fuller obovate magnolia petal belly (>= 1.88 * halfW)
+  // so labels fit cleanly at 100% zoom with comfortable inner margin on all OS fonts.
+  const a = halfW * 0.86;
+  const b = visLen * 0.44;
+  const rad = ((petal.angleDeg || 0) * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const centerW = 2 / Math.hypot(cos / a, sin / b);
+  const vertH = Math.hypot(a * sin, b * cos);
+
+  function availWAtOffset(dy) {
+    if (dy <= 0) return Math.max(14, centerW * 0.94);
+    if (vertH <= dy + 2) return 0;
+    const ratio = Math.sqrt(Math.max(0, 1 - (dy / vertH) ** 2));
+    return Math.max(0, centerW * ratio * 0.94);
+  }
+
+  return { halfW, len, visLen, centerW, vertH, availWAtOffset };
+}
+
+function computePetalLabelLayout(petal, opts = {}) {
+  const scale = opts.scale || 1;
+  const showLifespan = Boolean(opts.showLifespan);
   const name = petal.person?.name || "";
   const { first, rest } = splitDisplayName(name);
-  const halfW = petal.halfW || 24;
-  const len = petal.len || 60;
-  // Tapered botanical petal belly width with comfortable inner margin so white
-  // labels always remain strictly inside the petal fill.
-  const availW = Math.max(18, halfW * 1.38);
+  const lifespan = showLifespan ? formatLifespan(petal.person?.birth, petal.person?.death) : "";
+  const { halfW, len, vertH, availWAtOffset } = petalBellyMetrics(petal, scale);
+  const avail1 = availWAtOffset(0);
 
   // Tiny outer petals: crisp 2-letter initials
-  if (halfW < 18 || len < 42 || availW < 28) {
+  if (halfW < 14 || len < 36 || avail1 < 25) {
     return {
       mode: "initials",
       primary: getInitials(name),
       secondary: "",
-      primarySize: 9,
+      lifespan: "",
+      primarySize: halfW < 12 ? 9 : 10,
       secondarySize: 0,
+      lifespanSize: 0,
+      isTruncated: true,
+      showsFullWithLife: false,
     };
   }
 
-  // Hero Gen 1 petals: two-line full name
+  const sizeBoost = scale > 1 ? 1.07 : 1;
+  let primaryMax;
+  let primaryMin;
+  let secondaryMax;
+  let secondaryMin;
+
   if (petal.generation === 1 && !petal.isSibling) {
-    const primarySize = halfW >= 44 ? 13.5 : 12;
-    const secondarySize = halfW >= 44 ? 9.5 : 8.5;
-    const firstMax = Math.max(3, Math.min(12, Math.floor(availW / (primarySize * 0.62))));
-    const restMax = Math.max(3, Math.min(13, Math.floor(availW / (secondarySize * 0.62))));
+    primaryMax = 16 * sizeBoost;
+    primaryMin = 13;
+    secondaryMax = 12 * sizeBoost;
+    secondaryMin = 10;
+  } else if (petal.generation === 1 && petal.isSibling) {
+    primaryMax = 13.5 * sizeBoost;
+    primaryMin = 11;
+    secondaryMax = 10.5 * sizeBoost;
+    secondaryMin = 9;
+  } else if (petal.generation === 2 && !petal.isSibling) {
+    primaryMax = 14 * sizeBoost;
+    primaryMin = 11.5;
+    secondaryMax = 11 * sizeBoost;
+    secondaryMin = 9.5;
+  } else if (petal.generation === 2 && petal.isSibling) {
+    primaryMax = 12 * sizeBoost;
+    primaryMin = 10;
+    secondaryMax = 9.5 * sizeBoost;
+    secondaryMin = 8.5;
+  } else if (petal.generation === 3) {
+    primaryMax = 12 * sizeBoost;
+    primaryMin = 10;
+    secondaryMax = 10 * sizeBoost;
+    secondaryMin = 8.5;
+  } else {
+    primaryMax = 11.5 * sizeBoost;
+    primaryMin = 9.5;
+    secondaryMax = 9.5 * sizeBoost;
+    secondaryMin = 8.5;
+  }
+
+  primaryMax = Math.round(primaryMax * 2) / 2;
+  secondaryMax = Math.round(secondaryMax * 2) / 2;
+
+  const primaryWeight = petal.isSibling ? 600 : 700;
+  const twoLineOffset = (primaryMax + secondaryMax) * 0.32;
+  const avail2 = availWAtOffset(twoLineOffset);
+  const canTwoLine = Boolean(rest && vertH >= (primaryMax + secondaryMax) * 0.56 && avail2 >= 30);
+
+  if (canTwoLine) {
+    const f1 = fitLineToWidth(first, avail2, primaryMax, primaryMin, primaryWeight);
+    const f2 = fitLineToWidth(rest, avail2, secondaryMax, secondaryMin, 600);
+    const isTruncated = f1.truncated || f2.truncated;
+
+    if (showLifespan && lifespan && !isTruncated) {
+      const lifeSize = 10;
+      const threeLineOffset = (f1.fontSize + f2.fontSize + lifeSize) * 0.42;
+      const avail3 = availWAtOffset(threeLineOffset);
+      if (
+        vertH >= (f1.fontSize + f2.fontSize + lifeSize) * 0.74 &&
+        avail3 >= estimateTextWidthPx(lifespan, lifeSize, 500) + 4
+      ) {
+        return {
+          mode: "three-line",
+          primary: f1.text,
+          secondary: f2.text,
+          lifespan,
+          primarySize: f1.fontSize,
+          secondarySize: f2.fontSize,
+          lifespanSize: lifeSize,
+          isTruncated: false,
+          showsFullWithLife: true,
+        };
+      }
+    }
+
     return {
-      mode: rest ? "two-line" : "single",
-      primary: truncateLabel(first, firstMax),
-      secondary: rest ? truncateLabel(rest, restMax) : "",
-      primarySize,
-      secondarySize,
+      mode: "two-line",
+      primary: f1.text,
+      secondary: f2.text,
+      lifespan: "",
+      primarySize: f1.fontSize,
+      secondarySize: f2.fontSize,
+      lifespanSize: 0,
+      isTruncated,
+      showsFullWithLife: !isTruncated && !lifespan,
     };
   }
 
-  // Gen 2 petals or generous Gen 1 sibling petals
-  if ((petal.generation === 2 && !petal.isSibling && halfW >= 24 && len >= 64) || (petal.generation === 1 && petal.isSibling && halfW >= 26)) {
-    const primarySize = petal.isSibling ? 10 : 11;
-    const secondarySize = 8.2;
-    const firstMax = Math.max(3, Math.min(10, Math.floor(availW / (primarySize * 0.63))));
-    const restMax = Math.max(3, Math.min(11, Math.floor(availW / (secondarySize * 0.63))));
-    const showTwoLine = Boolean(rest && len >= 70 && halfW >= 28);
-    return {
-      mode: showTwoLine ? "two-line" : "single",
-      primary: truncateLabel(first, firstMax),
-      secondary: showTwoLine ? truncateLabel(rest, restMax) : "",
-      primarySize,
-      secondarySize,
-    };
-  }
-
-  // Outer petals (Gen 3+ or compact siblings): first name only, or initials if narrow
-  const primarySize = petal.generation <= 3 ? 9.5 : 8.8;
-  const firstMax = Math.floor(availW / (primarySize * 0.64));
-  if (firstMax < 3) {
+  // Single-line first name (or initials if very cramped)
+  const f1 = fitLineToWidth(first, avail1, primaryMax, primaryMin, primaryWeight);
+  if (f1.truncated && (f1.keptChars || 0) < 3) {
     return {
       mode: "initials",
       primary: getInitials(name),
       secondary: "",
-      primarySize: 8.8,
+      lifespan: "",
+      primarySize: 9.5,
       secondarySize: 0,
+      lifespanSize: 0,
+      isTruncated: true,
+      showsFullWithLife: false,
     };
   }
+
   return {
     mode: "single",
-    primary: truncateLabel(first, Math.min(10, firstMax)),
+    primary: f1.text,
     secondary: "",
-    primarySize,
+    lifespan: "",
+    primarySize: f1.fontSize,
     secondarySize: 0,
+    lifespanSize: 0,
+    isTruncated: Boolean(rest) || f1.truncated,
+    showsFullWithLife: !rest && !f1.truncated && !lifespan,
+  };
+}
+
+function computeSpouseLabelLayout(spouse, opts = {}) {
+  const scale = opts.scale || 1;
+  const name = spouse.person?.name || "Spouse";
+  const { first, rest } = splitDisplayName(name);
+  const { availWAtOffset } = petalBellyMetrics(
+    { ...spouse, generation: 1, baseR: typeof spouse.baseR === "number" ? spouse.baseR : 10 },
+    scale,
+  );
+  const primaryMax = scale > 1 ? 14 : 13;
+  const secondaryMax = scale > 1 ? 11 : 10.5;
+  const avail2 = Math.max(36, availWAtOffset(7));
+  const f1 = fitLineToWidth(first, avail2, primaryMax, 11, 700);
+  const secondWord = rest || "Spouse";
+  const f2 = fitLineToWidth(secondWord, avail2, secondaryMax, 9, 600);
+  return {
+    mode: "two-line",
+    primary: f1.text,
+    secondary: f2.text,
+    lifespan: "",
+    primarySize: f1.fontSize,
+    secondarySize: f2.fontSize,
+    lifespanSize: 0,
+    isTruncated: f1.truncated || (Boolean(rest) && f2.truncated),
+    showsFullWithLife: false,
+  };
+}
+
+function renderPetalLabelContent(x, y, label, isSibling = false) {
+  if (label.mode === "three-line") {
+    return (
+      <text
+        x={x}
+        y={y}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fill="var(--garden-petal-text)"
+        className="garden-petal-label"
+        style={{ pointerEvents: "none" }}
+      >
+        <tspan x={x} dy="-0.85em" fontSize={label.primarySize} fontWeight={700}>
+          {label.primary}
+        </tspan>
+        <tspan x={x} dy="1.18em" fontSize={label.secondarySize} fontWeight={600} opacity={0.96}>
+          {label.secondary}
+        </tspan>
+        <tspan x={x} dy="1.3em" fontSize={label.lifespanSize} fontWeight={500} opacity={0.9}>
+          {label.lifespan}
+        </tspan>
+      </text>
+    );
+  }
+  if (label.mode === "two-line") {
+    return (
+      <text
+        x={x}
+        y={y}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fill="var(--garden-petal-text)"
+        className="garden-petal-label"
+        style={{ pointerEvents: "none" }}
+      >
+        <tspan
+          x={x}
+          dy="-0.34em"
+          fontSize={label.primarySize}
+          fontWeight={isSibling ? 600 : 700}
+        >
+          {label.primary}
+        </tspan>
+        <tspan x={x} dy="1.18em" fontSize={label.secondarySize} fontWeight={600} opacity={0.96}>
+          {label.secondary}
+        </tspan>
+      </text>
+    );
+  }
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor="middle"
+      dominantBaseline="middle"
+      fill="var(--garden-petal-text)"
+      className="garden-petal-label"
+      style={{ pointerEvents: "none" }}
+    >
+      <tspan
+        x={x}
+        dy="0.04em"
+        fontSize={label.primarySize}
+        fontWeight={label.mode === "initials" ? 700 : 700}
+      >
+        {label.primary}
+      </tspan>
+    </text>
+  );
+}
+
+function rectCircleOverlapDepth(rx0, ry0, rx1, ry1, cx, cy, r) {
+  const closestX = Math.max(rx0, Math.min(cx, rx1));
+  const closestY = Math.max(ry0, Math.min(cy, ry1));
+  const dist = Math.hypot(cx - closestX, cy - closestY);
+  return dist < r ? r - dist : 0;
+}
+
+function computeSpecimenTagLayout(target, kind, obstacles = {}) {
+  const person = target?.person;
+  if (!person) return null;
+  const fullName = person.name || "Unknown";
+  const life = formatLifespan(person.birth, person.death);
+  const metaText =
+    kind === "spouse"
+      ? life
+        ? `${life} · Spouse`
+        : "Spouse"
+      : life || target.relLabel || "";
+
+  const nameSize = 12.5;
+  const metaSize = 10.5;
+  const nameW = estimateTextWidthPx(fullName, nameSize, 700);
+  const metaW = metaText ? estimateTextWidthPx(metaText, metaSize, 600) : 0;
+
+  const singleRowW = 24 + nameW + (metaText ? 14 + metaW : 0) + 18;
+  const twoLine = Boolean(metaText && singleRowW > 300);
+  const pillW = Math.min(
+    370,
+    Math.max(88, twoLine ? 26 + Math.max(nameW, metaW) + 18 : singleRowW),
+  );
+  const pillH = twoLine ? 40 : 28;
+
+  const rad = ((target.angleDeg || 0) * Math.PI) / 180;
+  const ux = Math.sin(rad);
+  const uy = -Math.cos(rad);
+  const expandScale = kind === "spouse" ? 1.1 : 1.12;
+  const expLabelX = target.cx + (target.labelX - target.cx) * expandScale;
+  const expLabelY = target.cy + (target.labelY - target.cy) * expandScale;
+  const tipX =
+    typeof target.tipX === "number"
+      ? target.cx + (target.tipX - target.cx) * expandScale
+      : target.cx + ux * (target.len || 80) * expandScale;
+  const tipY =
+    typeof target.tipY === "number"
+      ? target.cy + (target.tipY - target.cy) * expandScale
+      : target.cy + uy * (target.len || 80) * expandScale;
+
+  const minX = 14 + pillW / 2;
+  const maxX = GARDEN_WORLD - 14 - pillW / 2;
+  const minY = 48 + pillH / 2;
+  const maxY = GARDEN_WORLD - 16 - pillH / 2;
+  const clampPt = (px, py) => ({
+    x: Math.max(minX, Math.min(maxX, px)),
+    y: Math.max(minY, Math.min(maxY, py)),
+  });
+
+  const hasSprout = Boolean(target.hasMore && !target.isSprouted);
+  const halfWExp = (target.halfW || 30) * expandScale;
+  const vertClear = halfWExp * 0.96 + pillH / 2 + 10;
+  const tipClear = (hasSprout ? 30 : 14) + pillH / 2;
+
+  const candidates = [];
+  if (kind === "spouse") {
+    candidates.push(
+      { ...clampPt(expLabelX + ux * 8, Math.max(tipY, expLabelY) + halfWExp * 0.8 + pillH / 2 + 10), bias: 0 },
+      { ...clampPt(tipX + ux * (pillW * 0.5 + 12), expLabelY + 4), bias: 6 },
+      { ...clampPt(expLabelX, Math.min(tipY, expLabelY) - vertClear), bias: 14 },
+    );
+  } else {
+    const preferAbove = uy <= -0.45;
+    candidates.push(
+      // Outward past expanded tip
+      {
+        ...clampPt(
+          tipX + ux * (Math.abs(ux) > 0.6 ? pillW * 0.48 + 14 : 12),
+          tipY + uy * tipClear,
+        ),
+        bias: preferAbove ? 0 : 8,
+      },
+      // Below petal belly (ideal open parchment for sideways outer petals like Carmen / Lucia / Samuel)
+      {
+        ...clampPt(expLabelX + ux * 12, Math.max(tipY, expLabelY) + vertClear),
+        bias: preferAbove ? 12 : 2,
+      },
+      // Above petal belly (ideal open parchment for upward petals)
+      {
+        ...clampPt(expLabelX + ux * 12, Math.min(tipY, expLabelY) - vertClear),
+        bias: preferAbove ? 2 : 10,
+      },
+      // Outward-below diagonal
+      {
+        ...clampPt(tipX + ux * 20, Math.max(tipY, expLabelY) + vertClear + 4),
+        bias: 14,
+      },
+      // Outward-above diagonal
+      {
+        ...clampPt(tipX + ux * 20, Math.min(tipY, expLabelY) - vertClear - 4),
+        bias: 14,
+      },
+    );
+  }
+
+  // Build circular collision proxies for petals, blooms, spouses, and hub
+  const allPetals = obstacles.petals || [];
+  const allBlooms = obstacles.blooms || [];
+  const allSpouses = obstacles.spouses || [];
+  const hubObj = obstacles.hub || null;
+
+  let best = candidates[0];
+  let bestScore = Infinity;
+
+  for (const cand of candidates) {
+    const rx0 = cand.x - pillW / 2 - 4;
+    const ry0 = cand.y - pillH / 2 - 4;
+    const rx1 = cand.x + pillW / 2 + 4;
+    const ry1 = cand.y + pillH / 2 + 4;
+
+    let penalty = cand.bias + Math.hypot(cand.x - tipX, cand.y - tipY) * 0.12;
+
+    // Strongly avoid covering the hovered/focused petal itself
+    const selfBellyHit = rectCircleOverlapDepth(rx0, ry0, rx1, ry1, expLabelX, expLabelY, halfWExp * 0.94);
+    const selfTipHit = rectCircleOverlapDepth(rx0, ry0, rx1, ry1, tipX, tipY, halfWExp * 0.52);
+    if (selfBellyHit > 0) penalty += 5000 + selfBellyHit * 90;
+    if (selfTipHit > 0) penalty += 3000 + selfTipHit * 60;
+
+    // Strongly avoid covering neighboring petals (e.g. Joaquin above Carmen)
+    for (const p of allPetals) {
+      if (p.key === target.key) continue;
+      const rBelly = (p.halfW || 24) * 0.94;
+      const h1 = rectCircleOverlapDepth(rx0, ry0, rx1, ry1, p.labelX, p.labelY, rBelly);
+      if (h1 > 0) penalty += 2200 + h1 * 70;
+      if (typeof p.tipX === "number" && typeof p.tipY === "number") {
+        const h2 = rectCircleOverlapDepth(rx0, ry0, rx1, ry1, p.tipX, p.tipY, rBelly * 0.55);
+        if (h2 > 0) penalty += 1200 + h2 * 40;
+      }
+    }
+
+    // Avoid golden seed-heads and hero hub
+    for (const b of allBlooms) {
+      const h = rectCircleOverlapDepth(rx0, ry0, rx1, ry1, b.x, b.y, (b.r || 12) + 8);
+      if (h > 0) penalty += 2400 + h * 70;
+    }
+    if (hubObj) {
+      const h = rectCircleOverlapDepth(rx0, ry0, rx1, ry1, hubObj.x, hubObj.y, (hubObj.r || 48) + 12);
+      if (h > 0) penalty += 2800 + h * 80;
+    }
+    for (const s of allSpouses) {
+      if (s.key === target.key) continue;
+      const h = rectCircleOverlapDepth(rx0, ry0, rx1, ry1, s.labelX, s.labelY, (s.halfW || 26) * 0.9);
+      if (h > 0) penalty += 1800 + h * 50;
+    }
+
+    if (penalty < bestScore) {
+      bestScore = penalty;
+      best = cand;
+    }
+  }
+
+  return {
+    x: best.x,
+    y: best.y,
+    pillW,
+    pillH,
+    twoLine,
+    fullName,
+    metaText,
+    nameW,
+    nameSize,
+    metaSize,
+    swatchFill: kind === "spouse" ? "var(--garden-spouse)" : petalColorVar(target.generation),
   };
 }
 
@@ -141,6 +557,7 @@ export default function BotanicalGarden({
   const [hoverSpouseId, setHoverSpouseId] = React.useState(null);
   const [focusSpouseId, setFocusSpouseId] = React.useState(null);
   const [focusHub, setFocusHub] = React.useState(false);
+  const pointerFocusRef = React.useRef(false);
   const hudHost = React.useContext(ChartHudContext);
 
   const center = family[centerId];
@@ -314,6 +731,24 @@ export default function BotanicalGarden({
     return items;
   }, [selectedSpouse, hoveredSpouse, focusedSpouse, selectedPid, hoverSpouseId, focusSpouseId]);
 
+  const specimenTag = React.useMemo(() => {
+    const obstacles = { petals, blooms, spouses, hub };
+    if (previewSpouse?.person) {
+      return computeSpecimenTagLayout(previewSpouse, "spouse", obstacles);
+    }
+    if (previewPetal?.person) {
+      const restLabel = computePetalLabelLayout(previewPetal);
+      const expandedLabel = computePetalLabelLayout(previewPetal, {
+        scale: 1,
+        showLifespan: true,
+      });
+      if (restLabel.isTruncated || !expandedLabel.showsFullWithLife) {
+        return computeSpecimenTagLayout(previewPetal, "petal", obstacles);
+      }
+    }
+    return null;
+  }, [previewPetal, previewSpouse, petals, blooms, spouses, hub]);
+
   function isStemInTrail(stem) {
     if (activeTrail.size === 0) return false;
     if (stem.toKey && activeTrail.has(stem.toKey)) {
@@ -359,11 +794,11 @@ export default function BotanicalGarden({
             <stop offset="100%" stopColor="var(--garden-stamen-ring)" stopOpacity="0.96" />
           </radialGradient>
 
-          {/* Subtle petal sheen overlay */}
+          {/* Subtle petal sheen overlay (gentle highlight preserving >=5.9:1 text contrast) */}
           <linearGradient id="garden-petal-sheen" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="var(--garden-focus-inner)" stopOpacity="0.22" />
-            <stop offset="55%" stopColor="var(--garden-focus-inner)" stopOpacity="0.04" />
-            <stop offset="100%" stopColor="var(--garden-stamen-ring)" stopOpacity="0.18" />
+            <stop offset="0%" stopColor="var(--garden-focus-inner)" stopOpacity="0.12" />
+            <stop offset="55%" stopColor="var(--garden-focus-inner)" stopOpacity="0.02" />
+            <stop offset="100%" stopColor="var(--garden-stamen-ring)" stopOpacity="0.14" />
           </linearGradient>
 
           {/* Sap-gold glow filter for active trail stems */}
@@ -397,25 +832,9 @@ export default function BotanicalGarden({
           />
         </g>
 
-        {/* Layer 2: Main lower stem & ground leaves */}
-        {mainStem && (
-          <g className="garden-main-stem-layer" aria-hidden="true">
-            <path
-              className="garden-main-stem"
-              d={mainStem.d}
-              fill="none"
-              stroke="var(--garden-stem)"
-              strokeWidth={6}
-              strokeLinecap="round"
-            />
-            <path
-              d={mainStem.d}
-              fill="none"
-              stroke="var(--garden-leaf)"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeOpacity={0.55}
-            />
+        {/* Layer 2: Ground leaves behind lower stem & spouses */}
+        {mainStem && (mainStem.leaves || []).length > 0 && (
+          <g className="garden-ground-leaves-layer" aria-hidden="true">
             {(mainStem.leaves || []).map((leaf, idx) => (
               <g
                 key={`ground-leaf-${idx}`}
@@ -521,9 +940,18 @@ export default function BotanicalGarden({
                   data-slot={bud.slot}
                   data-generation={bud.generation}
                   aria-label={ariaText}
+                  onMouseDown={() => {
+                    pointerFocusRef.current = true;
+                  }}
                   onMouseEnter={() => setHoverBudKey(bud.key)}
                   onMouseLeave={() => setHoverBudKey((cur) => (cur === bud.key ? null : cur))}
-                  onFocus={() => setFocusBudKey(bud.key)}
+                  onFocus={() => {
+                    if (pointerFocusRef.current) {
+                      pointerFocusRef.current = false;
+                      return;
+                    }
+                    setFocusBudKey(bud.key);
+                  }}
                   onBlur={() => setFocusBudKey((cur) => (cur === bud.key ? null : cur))}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -549,6 +977,7 @@ export default function BotanicalGarden({
                   )}
                   {/* Generous invisible touch target for mobile */}
                   <circle
+                    className="garden-hit-target"
                     cx={bud.x}
                     cy={bud.y - budR * 0.4}
                     r={hitR}
@@ -556,6 +985,7 @@ export default function BotanicalGarden({
                   />
                   <g transform={`translate(${bud.x}, ${bud.y}) rotate(${bud.angleDeg || 0})`}>
                     <path
+                      className="garden-bud-shape"
                       d={budPathD(budR)}
                       fill="var(--garden-bud-fill)"
                       stroke="var(--garden-bud-stroke)"
@@ -610,7 +1040,7 @@ export default function BotanicalGarden({
           </g>
         )}
 
-        {/* Layer 5: Companion spouse leaf-blooms on lower stem */}
+        {/* Layer 5: Companion spouse leaf-blooms on lower stem (stationary hit targets; tucked behind main stem & hub) */}
         {spouses.length > 0 && (
           <g className="garden-spouses-layer">
             {spouses.map((s) => {
@@ -619,7 +1049,7 @@ export default function BotanicalGarden({
               const isFocused = focusSpouseId === s.personId;
               const spouseName = s.person?.name || "Spouse";
               const spouseLife = formatLifespan(s.person?.birth, s.person?.death);
-              const { first } = splitDisplayName(spouseName);
+              const spouseLabel = computeSpouseLabelLayout(s);
               const hitR = Math.max(24, (s.halfW || 18) + 8);
 
               return (
@@ -632,9 +1062,18 @@ export default function BotanicalGarden({
                   data-slot="spouse"
                   aria-pressed={isSelected}
                   aria-label={`${spouseName}, spouse. Enter to select; R to center.`}
+                  onMouseDown={() => {
+                    pointerFocusRef.current = true;
+                  }}
                   onMouseEnter={() => setHoverSpouseId(s.personId)}
                   onMouseLeave={() => setHoverSpouseId((cur) => (cur === s.personId ? null : cur))}
-                  onFocus={() => setFocusSpouseId(s.personId)}
+                  onFocus={() => {
+                    if (pointerFocusRef.current) {
+                      pointerFocusRef.current = false;
+                      return;
+                    }
+                    setFocusSpouseId(s.personId);
+                  }}
                   onBlur={() => setFocusSpouseId((cur) => (cur === s.personId ? null : cur))}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -657,14 +1096,16 @@ export default function BotanicalGarden({
                   <title>
                     {spouseName} (Spouse{spouseLife ? ` · ${spouseLife}` : ""})
                   </title>
-                  <circle cx={s.labelX} cy={s.labelY} r={hitR} fill="transparent" />
+                  <circle className="garden-hit-target" cx={s.labelX} cy={s.labelY} r={hitR} fill="transparent" />
                   <g transform={`translate(${s.cx}, ${s.cy}) rotate(${s.angleDeg})`}>
                     <path
+                      className="garden-spouse-shape"
                       d={s.pathD}
                       fill="var(--garden-spouse)"
-                      fillOpacity={isSelected || isHover ? 0.98 : 0.88}
+                      fillOpacity={isSelected || isHover || isFocused ? 0.98 : 0.94}
                       stroke="var(--garden-stamen-ring)"
-                      strokeWidth={isSelected ? 2.2 : 1.3}
+                      strokeWidth={1.3}
+                      strokeOpacity={0.5}
                       strokeLinejoin="round"
                     />
                     <path
@@ -677,7 +1118,7 @@ export default function BotanicalGarden({
                         d={s.veinD}
                         fill="none"
                         stroke="var(--garden-petal-text)"
-                        strokeOpacity={0.28}
+                        strokeOpacity={0.22}
                         strokeWidth={1}
                         strokeLinecap="round"
                         style={{ pointerEvents: "none" }}
@@ -685,29 +1126,14 @@ export default function BotanicalGarden({
                     )}
                   </g>
                   {/* Always-upright spouse label */}
-                  <text
-                    x={s.labelX}
-                    y={s.labelY}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill="var(--garden-petal-text)"
-                    className="garden-petal-label"
-                    style={{ pointerEvents: "none" }}
-                  >
-                    <tspan x={s.labelX} dy="-0.32em" fontSize={10.5} fontWeight={700}>
-                      {truncateLabel(first, 10)}
-                    </tspan>
-                    <tspan x={s.labelX} dy="1.2em" fontSize={7.8} fontWeight={500} opacity={0.92}>
-                      Spouse
-                    </tspan>
-                  </text>
+                  {renderPetalLabelContent(s.labelX, s.labelY, spouseLabel, false)}
                 </g>
               );
             })}
           </g>
         )}
 
-        {/* Layer 6: Person petals (siblings first, then main petals; stable DOM order) */}
+        {/* Layer 6: Person petals (siblings first, then main petals; stable DOM order & stationary hit targets) */}
         <g className="garden-petals-layer">
           {orderedPetals.map((p, idx) => {
             const isHover = hoverKey === p.key;
@@ -730,15 +1156,12 @@ export default function BotanicalGarden({
                   )
                 : undefined;
 
+            // Keep fillOpacity rich so CSS .is-dimmed (opacity: 0.70) recedes gently without faint text
             const fillOpacity = isHover || isSelected || isFocused
               ? 0.98
-              : isDimmed
-                ? p.isSibling
-                  ? 0.42
-                  : 0.56
-                : p.isSibling
-                  ? 0.78
-                  : 0.92;
+              : p.isSibling
+                ? 0.9
+                : 0.96;
 
             const label = computePetalLabelLayout(p);
             const bloomDelayMs = Math.min(360, (p.generation - 1) * 75 + (idx % 6) * 28);
@@ -759,9 +1182,18 @@ export default function BotanicalGarden({
                 aria-expanded={ariaExpanded}
                 aria-label={`${personName}${p.isSibling ? ", sibling" : ""}. Enter to select; R to center.`}
                 style={{ "--bloom-delay": `${bloomDelayMs}ms` }}
+                onMouseDown={() => {
+                  pointerFocusRef.current = true;
+                }}
                 onMouseEnter={() => setHoverKey(p.key)}
                 onMouseLeave={() => setHoverKey((cur) => (cur === p.key ? null : cur))}
-                onFocus={() => setFocusKey(p.key)}
+                onFocus={() => {
+                  if (pointerFocusRef.current) {
+                    pointerFocusRef.current = false;
+                    return;
+                  }
+                  setFocusKey(p.key);
+                }}
                 onBlur={() => setFocusKey((cur) => (cur === p.key ? null : cur))}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -790,6 +1222,7 @@ export default function BotanicalGarden({
                 {/* Generous transparent hit area for smaller outer petals */}
                 {needsHitCircle && (
                   <circle
+                    className="garden-hit-target"
                     cx={p.labelX}
                     cy={p.labelY}
                     r={Math.max(24, (p.halfW || 16) + 10)}
@@ -811,7 +1244,7 @@ export default function BotanicalGarden({
                           ? "var(--garden-petal-text)"
                           : "var(--garden-stamen-ring)"
                     }
-                    strokeOpacity={p.isSibling ? 0.72 : inTrail ? 0.92 : 0.42}
+                    strokeOpacity={p.isSibling ? 0.72 : inTrail ? 0.92 : 0.44}
                     strokeWidth={p.isSibling ? 1.5 : inTrail ? 2 : 1.3}
                     strokeDasharray={p.isSibling ? "5 3.5" : undefined}
                     strokeLinejoin="round"
@@ -829,7 +1262,7 @@ export default function BotanicalGarden({
                       d={p.veinD}
                       fill="none"
                       stroke="var(--garden-petal-text)"
-                      strokeOpacity={0.26}
+                      strokeOpacity={0.22}
                       strokeWidth={p.generation <= 1 ? 1.25 : 0.95}
                       strokeLinecap="round"
                       style={{ pointerEvents: "none" }}
@@ -842,6 +1275,7 @@ export default function BotanicalGarden({
                   <g
                     className="garden-sprout-tendril"
                     transform={`translate(${p.tipX}, ${p.tipY}) rotate(${p.angleDeg})`}
+                    style={{ opacity: isHover || isFocused ? 0 : 1 }}
                   >
                     <path
                       d="M 0,0 C 4,-5 5,-10 0,-13"
@@ -876,52 +1310,225 @@ export default function BotanicalGarden({
                 )}
 
                 {/* Always-upright horizontal label at petal belly */}
-                <text
-                  x={p.labelX}
-                  y={p.labelY}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fill="var(--garden-petal-text)"
-                  className="garden-petal-label"
-                  style={{ pointerEvents: "none" }}
-                >
-                  {label.mode === "two-line" ? (
-                    <>
-                      <tspan
-                        x={p.labelX}
-                        dy="-0.34em"
-                        fontSize={label.primarySize}
-                        fontWeight={p.isSibling ? 600 : 700}
-                      >
-                        {label.primary}
-                      </tspan>
-                      <tspan
-                        x={p.labelX}
-                        dy="1.18em"
-                        fontSize={label.secondarySize}
-                        fontWeight={500}
-                        opacity={0.94}
-                      >
-                        {label.secondary}
-                      </tspan>
-                    </>
-                  ) : (
-                    <tspan
-                      x={p.labelX}
-                      dy="0.04em"
-                      fontSize={label.primarySize}
-                      fontWeight={label.mode === "initials" ? 700 : 600}
-                    >
-                      {label.primary}
-                    </tspan>
-                  )}
-                </text>
+                {renderPetalLabelContent(p.labelX, p.labelY, label, p.isSibling)}
               </g>
             );
           })}
         </g>
 
-        {/* Layer 7: Unlabeled golden seed-head circles for satellite blooms */}
+        {/* Layer 6b: Under-hub petal & spouse lift/expansion layer (tucked cleanly BEHIND main stem, blooms & hub) */}
+        <g className="garden-petal-lift" aria-hidden="true" pointerEvents="none" style={{ pointerEvents: "none" }}>
+          {liftSpouses.map(({ spouse: s, isSelected, isHovered, isFocused }) => {
+            const isExpanded = isHovered || isFocused;
+            const outerWidth = isFocused ? 4.8 : isSelected ? 4.2 : 3.4;
+            const innerWidth = isFocused ? 2.1 : isSelected ? 1.8 : 1.6;
+
+            if (isExpanded) {
+              const expandedLabel = computeSpouseLabelLayout(s, { scale: 1 });
+              return (
+                <g key={`lift-spouse-${s.key}`} transform={`translate(${s.cx}, ${s.cy})`}>
+                  <g className="garden-spouse-expand">
+                    <g transform={`rotate(${s.angleDeg})`}>
+                      <path
+                        d={s.pathD}
+                        fill="var(--garden-spouse)"
+                        fillOpacity={0.99}
+                        stroke="none"
+                      />
+                      <path d={s.pathD} fill="url(#garden-petal-sheen)" />
+                      {s.veinD && (
+                        <path
+                          d={s.veinD}
+                          fill="none"
+                          stroke="var(--garden-petal-text)"
+                          strokeOpacity={0.22}
+                          strokeWidth={1}
+                          strokeLinecap="round"
+                        />
+                      )}
+                      <path
+                        d={s.pathD}
+                        fill="none"
+                        stroke="var(--garden-focus-outer)"
+                        strokeWidth={outerWidth}
+                        strokeOpacity={isFocused || isSelected ? 0.96 : 0.84}
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d={s.pathD}
+                        fill="none"
+                        stroke="var(--garden-focus-inner)"
+                        strokeWidth={innerWidth}
+                        strokeLinejoin="round"
+                      />
+                    </g>
+                    {renderPetalLabelContent(s.labelX - s.cx, s.labelY - s.cy, expandedLabel, false)}
+                  </g>
+                </g>
+              );
+            }
+
+            return (
+              <g
+                key={`lift-spouse-${s.key}`}
+                transform={`translate(${s.cx}, ${s.cy}) rotate(${s.angleDeg})`}
+              >
+                <path
+                  d={s.pathD}
+                  fill="none"
+                  stroke="var(--garden-focus-outer)"
+                  strokeWidth={4.2}
+                  strokeOpacity={0.95}
+                  strokeLinejoin="round"
+                />
+                <path
+                  d={s.pathD}
+                  fill="none"
+                  stroke="var(--garden-focus-inner)"
+                  strokeWidth={1.8}
+                  strokeLinejoin="round"
+                />
+              </g>
+            );
+          })}
+
+          {liftPetals.map(({ petal: p, isSelected, isHovered, isFocused }) => {
+            const isExpanded = isHovered || isFocused;
+            const fillColor = petalColorVar(p.generation);
+            const showSproutTendril = Boolean(p.hasMore && !p.isSprouted);
+
+            if (isExpanded) {
+              const expandedLabel = computePetalLabelLayout(p, {
+                scale: 1,
+                showLifespan: true,
+              });
+              const outerWidth = isFocused ? 4.8 : isSelected ? 4.4 : 3.6;
+              const innerWidth = isFocused ? 2.1 : isSelected ? 1.9 : 1.7;
+
+              return (
+                <g key={`lift-${p.key}`} transform={`translate(${p.cx}, ${p.cy})`}>
+                  <g className="garden-petal-expand">
+                    <g transform={`rotate(${p.angleDeg})`}>
+                      <path
+                        d={p.pathD}
+                        fill={fillColor}
+                        fillOpacity={0.99}
+                        stroke="none"
+                      />
+                      <path d={p.pathD} fill="url(#garden-petal-sheen)" />
+                      {p.veinD && (
+                        <path
+                          className="garden-petal-vein"
+                          d={p.veinD}
+                          fill="none"
+                          stroke="var(--garden-petal-text)"
+                          strokeOpacity={0.22}
+                          strokeWidth={p.generation <= 1 ? 1.25 : 0.95}
+                          strokeLinecap="round"
+                        />
+                      )}
+                      <path
+                        d={p.pathD}
+                        fill="none"
+                        stroke="var(--garden-focus-outer)"
+                        strokeWidth={outerWidth}
+                        strokeOpacity={isFocused || isSelected ? 0.96 : 0.86}
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d={p.pathD}
+                        fill="none"
+                        stroke="var(--garden-focus-inner)"
+                        strokeWidth={innerWidth}
+                        strokeLinejoin="round"
+                      />
+                      {showSproutTendril && (
+                        <g transform={`translate(0, ${-p.len})`}>
+                          <path
+                            d="M 0,0 C 4,-5 5,-10 0,-13"
+                            fill="none"
+                            stroke="var(--garden-stem)"
+                            strokeWidth={1.6}
+                            strokeLinecap="round"
+                          />
+                          <circle
+                            cx={0}
+                            cy={-14}
+                            r={7.5}
+                            fill="var(--garden-bud-fill)"
+                            stroke="var(--garden-bud-stroke)"
+                            strokeWidth={1.4}
+                          />
+                          <g transform={`translate(0, -14) rotate(${-p.angleDeg})`}>
+                            <text
+                              x={0}
+                              y={0.5}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              fontSize={10}
+                              fontWeight={700}
+                              fill="var(--garden-bud-stroke)"
+                            >
+                              +
+                            </text>
+                          </g>
+                        </g>
+                      )}
+                    </g>
+                    {renderPetalLabelContent(p.labelX - p.cx, p.labelY - p.cy, expandedLabel, p.isSibling)}
+                  </g>
+                </g>
+              );
+            }
+
+            return (
+              <g
+                key={`lift-${p.key}`}
+                transform={`translate(${p.cx}, ${p.cy}) rotate(${p.angleDeg})`}
+              >
+                <path
+                  d={p.pathD}
+                  fill="none"
+                  stroke="var(--garden-focus-outer)"
+                  strokeWidth={4.4}
+                  strokeOpacity={0.95}
+                  strokeLinejoin="round"
+                />
+                <path
+                  d={p.pathD}
+                  fill="none"
+                  stroke="var(--garden-focus-inner)"
+                  strokeWidth={1.9}
+                  strokeLinejoin="round"
+                />
+              </g>
+            );
+          })}
+        </g>
+
+        {/* Layer 7: Main lower stem stalk (over spouse bases, tucked cleanly behind hero hub) */}
+        {mainStem && (
+          <g className="garden-main-stem-layer" aria-hidden="true" style={{ pointerEvents: "none" }}>
+            <path
+              className="garden-main-stem"
+              d={mainStem.d}
+              fill="none"
+              stroke="var(--garden-stem)"
+              strokeWidth={6}
+              strokeLinecap="round"
+            />
+            <path
+              d={mainStem.d}
+              fill="none"
+              stroke="var(--garden-leaf)"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeOpacity={0.55}
+            />
+          </g>
+        )}
+
+        {/* Layer 8: Unlabeled golden seed-head circles for satellite blooms (ABOVE petal fills & petal lift outlines) */}
         {blooms.length > 0 && (
           <g className="garden-blooms-layer" aria-hidden="true">
             {blooms.map((b) => {
@@ -964,7 +1571,7 @@ export default function BotanicalGarden({
           </g>
         )}
 
-        {/* Layer 8: Hero golden pollen-ringed stamen hub */}
+        {/* Layer 9: Hero golden pollen-ringed stamen hub (ABOVE Gen 1 petal fills & petal lift outlines) */}
         <g
           role="button"
           tabIndex={0}
@@ -972,7 +1579,16 @@ export default function BotanicalGarden({
           aria-pressed={selectedPid === centerId}
           aria-label={`Select ${center?.name ?? "center person"}`}
           className={`garden-hub${selectedPid === centerId ? " is-selected" : ""}${focusHub ? " is-focused" : ""}`}
-          onFocus={() => setFocusHub(true)}
+          onMouseDown={() => {
+            pointerFocusRef.current = true;
+          }}
+          onFocus={() => {
+            if (pointerFocusRef.current) {
+              pointerFocusRef.current = false;
+              return;
+            }
+            setFocusHub(true);
+          }}
           onBlur={() => setFocusHub(false)}
           onClick={(e) => {
             e.stopPropagation();
@@ -1064,71 +1680,8 @@ export default function BotanicalGarden({
           )}
         </g>
 
-        {/* Layer 9: Top lift & focus-ring layer (preserves DOM tab order) + Maternal/Paternal markers */}
-        <g className="garden-lift-layer" aria-hidden="true" style={{ pointerEvents: "none" }}>
-          {liftPetals.map(({ petal: p, isSelected, isHovered, isFocused }) => (
-            <g key={`lift-${p.key}`} transform={`translate(${p.cx}, ${p.cy}) rotate(${p.angleDeg})`}>
-              {isFocused ? (
-                <>
-                  <path
-                    d={p.pathD}
-                    fill="none"
-                    stroke="var(--garden-focus-outer)"
-                    strokeWidth={5.5}
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d={p.pathD}
-                    fill="none"
-                    stroke="var(--garden-focus-inner)"
-                    strokeWidth={2.5}
-                    strokeLinejoin="round"
-                  />
-                </>
-              ) : (
-                <path
-                  d={p.pathD}
-                  fill="none"
-                  stroke={isSelected ? "var(--garden-focus-outer)" : "var(--garden-focus-inner)"}
-                  strokeWidth={isSelected ? 3.2 : isHovered ? 2.2 : 0}
-                  strokeOpacity={isSelected ? 0.95 : 0.85}
-                  strokeLinejoin="round"
-                />
-              )}
-            </g>
-          ))}
-
-          {liftSpouses.map(({ spouse: s, isSelected, isHovered, isFocused }) => (
-            <g key={`lift-spouse-${s.key}`} transform={`translate(${s.cx}, ${s.cy}) rotate(${s.angleDeg})`}>
-              {isFocused ? (
-                <>
-                  <path
-                    d={s.pathD}
-                    fill="none"
-                    stroke="var(--garden-focus-outer)"
-                    strokeWidth={5}
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d={s.pathD}
-                    fill="none"
-                    stroke="var(--garden-focus-inner)"
-                    strokeWidth={2.2}
-                    strokeLinejoin="round"
-                  />
-                </>
-              ) : (
-                <path
-                  d={s.pathD}
-                  fill="none"
-                  stroke={isSelected ? "var(--garden-focus-outer)" : "var(--garden-focus-inner)"}
-                  strokeWidth={isSelected ? 2.8 : isHovered ? 2 : 0}
-                  strokeLinejoin="round"
-                />
-              )}
-            </g>
-          ))}
-
+        {/* Layer 10: Top overlay — ONLY hub/bud focus rings, specimen name tags & Maternal/Paternal markers */}
+        <g className="garden-lift-layer" aria-hidden="true" pointerEvents="none" style={{ pointerEvents: "none" }}>
           {focusedBud && (
             <g transform={`translate(${focusedBud.x}, ${focusedBud.y}) rotate(${focusedBud.angleDeg || 0})`}>
               <path
@@ -1170,14 +1723,97 @@ export default function BotanicalGarden({
           )}
 
           {selectedPid === centerId && !focusHub && (
-            <circle
-              cx={hub.x}
-              cy={hub.y}
-              r={hub.r + 2.5}
-              fill="none"
-              stroke="var(--garden-focus-outer)"
-              strokeWidth={3}
-            />
+            <>
+              <circle
+                cx={hub.x}
+                cy={hub.y}
+                r={hub.r + 2.5}
+                fill="none"
+                stroke="var(--garden-focus-outer)"
+                strokeWidth={4.2}
+              />
+              <circle
+                cx={hub.x}
+                cy={hub.y}
+                r={hub.r + 2.5}
+                fill="none"
+                stroke="var(--garden-focus-inner)"
+                strokeWidth={1.8}
+              />
+            </>
+          )}
+
+          {/* High-contrast botanical parchment specimen pill for hovered/focused petals & spouses */}
+          {specimenTag && (
+            <g className="garden-specimen-tag" pointerEvents="none">
+              <rect
+                x={specimenTag.x - specimenTag.pillW / 2}
+                y={specimenTag.y - specimenTag.pillH / 2}
+                width={specimenTag.pillW}
+                height={specimenTag.pillH}
+                rx={specimenTag.twoLine ? 12 : 14}
+                fill="var(--bg-elevated, #FBF7EE)"
+                stroke="var(--garden-focus-outer, #1E3A28)"
+                strokeWidth={1.5}
+              />
+              <circle
+                cx={specimenTag.x - specimenTag.pillW / 2 + 13}
+                cy={specimenTag.y}
+                r={4.2}
+                fill={specimenTag.swatchFill}
+              />
+              {specimenTag.twoLine ? (
+                <>
+                  <text
+                    x={specimenTag.x - specimenTag.pillW / 2 + 24}
+                    y={specimenTag.y - 6.5}
+                    textAnchor="start"
+                    dominantBaseline="middle"
+                    fontSize={specimenTag.nameSize}
+                    fontWeight={700}
+                    fill="var(--fg, #2A2A1E)"
+                  >
+                    {specimenTag.fullName}
+                  </text>
+                  <text
+                    x={specimenTag.x - specimenTag.pillW / 2 + 24}
+                    y={specimenTag.y + 9}
+                    textAnchor="start"
+                    dominantBaseline="middle"
+                    fontSize={specimenTag.metaSize}
+                    fontWeight={600}
+                    fill="var(--muted-fg, #5A5642)"
+                  >
+                    {specimenTag.metaText}
+                  </text>
+                </>
+              ) : (
+                <text
+                  x={specimenTag.x - specimenTag.pillW / 2 + 24}
+                  y={specimenTag.y + 0.5}
+                  textAnchor="start"
+                  dominantBaseline="middle"
+                >
+                  <tspan
+                    fontSize={specimenTag.nameSize}
+                    fontWeight={700}
+                    fill="var(--fg, #2A2A1E)"
+                  >
+                    {specimenTag.fullName}
+                  </tspan>
+                  {specimenTag.metaText && (
+                    <tspan
+                      dx={8}
+                      fontSize={specimenTag.metaSize}
+                      fontWeight={600}
+                      fill="var(--muted-fg, #5A5642)"
+                    >
+                      {specimenTag.metaText}
+                    </tspan>
+                  )}
+                </text>
+              )}
+            </g>
           )}
 
           {/* Subtle Maternal / Paternal garden markers */}

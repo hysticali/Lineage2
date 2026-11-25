@@ -24,20 +24,20 @@ const RAD_TO_DEG = 180 / Math.PI;
 const GENERATIONAL_SUFFIX = /^(?:jr\.?|sr\.?|ii|iii|iv|v)$/i;
 
 // Adaptive concentric ring radii (from hub center) keyed by max visible gen.
-// Default Gen 1+2 fills ~70-75% of the visible chart frame gracefully, while
+// Default Gen 1+2 fills ~72-78% of the visible chart frame gracefully, while
 // deeper expanded trees scale smoothly up to Gen 6 inside GARDEN_BOUNDS.
 const BLOOM_RING_RADII = {
   1: [0, 0],
-  2: [0, 0, 324],
-  3: [0, 0, 260, 368],
-  4: [0, 0, 224, 310, 388],
-  5: [0, 0, 202, 274, 338, 396],
-  6: [0, 0, 186, 246, 300, 350, 400],
+  2: [0, 0, 316],
+  3: [0, 0, 248, 358],
+  4: [0, 0, 218, 304, 384],
+  5: [0, 0, 198, 270, 336, 394],
+  6: [0, 0, 184, 244, 298, 348, 398],
 };
 
-// Lush, broad botanical petal proportions per generation (scaled slightly when maxGen is deep).
-const BASE_PETAL_LEN = [0, 160, 120, 86, 66, 54, 46];
-const BASE_PETAL_HALF_W = [0, 56, 42, 31, 24, 20, 17];
+// Lush, broad obovate botanical petal proportions per generation (scaled slightly when maxGen is deep).
+const BASE_PETAL_LEN = [0, 162, 124, 90, 68, 56, 48];
+const BASE_PETAL_HALF_W = [0, 58, 48, 36, 26, 21, 18];
 const BASE_SEED_R = [48, 0, 14.5, 11.5, 9.5, 8, 6.5];
 
 // ─── DETERMINISTIC PRNG ───────────────────────────────────────────────────────
@@ -139,21 +139,33 @@ function wheelRadToGardenDeg(rad) {
   return ((rad - 1.5 * Math.PI) * RAD_TO_DEG);
 }
 
-// Local-origin organic petal path pointing straight up (-Y) from (0, 0) to (0, -len).
-// Broad botanical belly (~1.64 * halfW at mid-height) comfortably holds upright labels.
+// Local-origin lush obovate / magnolia petal path pointing straight up (-Y) from
+// (0, 0) to (0, -len). Tapers gracefully at the base, swells to its full width
+// (±halfW) across the upper-mid belly (y = -0.38L .. -0.80L), and closes with a
+// soft C1-smooth rounded crown (horizontal tangent at (0, -len)) for generous
+// upright text room and an authentic botanical silhouette.
 function petalPathD(len, halfW) {
   const w = halfW;
   const L = len;
   return [
     'M 0,0',
-    `C ${r2(1.12 * w)},${r2(-0.28 * L)} ${r2(1.06 * w)},${r2(-0.78 * L)} 0,${r2(-L)}`,
-    `C ${r2(-1.06 * w)},${r2(-0.78 * L)} ${r2(-1.12 * w)},${r2(-0.28 * L)} 0,0 Z`,
+    `C ${r2(0.24 * w)},${r2(-0.16 * L)} ${r2(1.0 * w)},${r2(-0.38 * L)} ${r2(1.0 * w)},${r2(-0.63 * L)}`,
+    `C ${r2(1.0 * w)},${r2(-0.85 * L)} ${r2(0.48 * w)},${r2(-1.0 * L)} 0,${r2(-L)}`,
+    `C ${r2(-0.48 * w)},${r2(-1.0 * L)} ${r2(-1.0 * w)},${r2(-0.85 * L)} ${r2(-1.0 * w)},${r2(-0.63 * L)}`,
+    `C ${r2(-1.0 * w)},${r2(-0.38 * L)} ${r2(-0.24 * w)},${r2(-0.16 * L)} 0,0 Z`,
   ].join(' ');
 }
 
 // Delicate midrib vein along petal center.
 function petalVeinD(len) {
-  return `M 0,${r2(-0.1 * len)} Q ${r2(0.03 * len)},${r2(-0.44 * len)} 0,${r2(-0.76 * len)}`;
+  return `M 0,${r2(-0.12 * len)} Q ${r2(0.025 * len)},${r2(-0.46 * len)} 0,${r2(-0.8 * len)}`;
+}
+
+// Optical center of the visible petal belly, accounting for the golden hub or
+// seed-head disc (radius baseR) that covers the petal's base.
+function opticalLabelRadius(len, baseR) {
+  const visibleCenter = baseR + (len - baseR) * 0.49;
+  return r2(Math.min(len * 0.72, Math.max(len * 0.58, visibleCenter)));
 }
 
 // Monotone polar cubic Bezier stem from (x0, y0) to (x1, y1), split into 2 cubics
@@ -273,7 +285,7 @@ function buildGarden(centerId, family, expanded, opts = {}) {
   const maxGen = personWedges.reduce((m, w) => Math.max(m, w.generation), 0);
   const depthKey = Math.max(1, Math.min(MAX_GEN, maxGen));
   const ringRadii = BLOOM_RING_RADII[depthKey] || BLOOM_RING_RADII[MAX_GEN];
-  const depthScale = maxGen <= 2 ? 1 : maxGen === 3 ? 0.9 : maxGen === 4 ? 0.8 : maxGen === 5 ? 0.74 : 0.68;
+  const depthScale = maxGen <= 2 ? 1 : maxGen === 3 ? 0.9 : maxGen === 4 ? 0.82 : maxGen === 5 ? 0.76 : 0.7;
 
   // Map wheel fan [-90°, +90°] into garden upper fan [-80°, +80°] so all stems/blooms
   // spread lushly across the parchment while staying cleanly above the lower stem & spouses.
@@ -324,19 +336,20 @@ function buildGarden(centerId, family, expanded, opts = {}) {
   }
 
   // Compute safe petal length & half-width for a petal at generation g.
-  function computePetalSize(gen, isSibling, angularStepDeg, maxOuterR, bloomR) {
-    const genScale = gen === 1 ? (maxGen <= 2 ? 1 : Math.max(0.78, depthScale + 0.08)) : depthScale;
-    const rawLen = (BASE_PETAL_LEN[Math.min(gen, MAX_GEN)] || 46) * genScale;
-    const rawW = (BASE_PETAL_HALF_W[Math.min(gen, MAX_GEN)] || 17) * genScale;
-    const sibFactor = isSibling ? 0.78 : 1;
+  function computePetalSize(gen, isSibling, angularStepDeg, maxOuterR) {
+    const genScale = gen === 1 ? (maxGen <= 2 ? 1 : Math.max(0.8, depthScale + 0.06)) : depthScale;
+    const rawLen = (BASE_PETAL_LEN[Math.min(gen, MAX_GEN)] || 48) * genScale;
+    const rawW = (BASE_PETAL_HALF_W[Math.min(gen, MAX_GEN)] || 18) * genScale;
+    const sibFactor = isSibling ? 0.8 : 1;
 
-    // Ensure tip stays inside radial envelope (maxOuterR <= 436 from hub)
+    // Ensure tip stays inside radial envelope (maxOuterR <= 442 from hub)
     const len = r2(Math.max(30, Math.min(rawLen * sibFactor, maxOuterR)));
 
-    // Keep adjacent petals on the same bloom lush yet non-overlapping using actual neighbor angle step
-    const safeStep = Math.max(18, Math.min(90, angularStepDeg));
-    const widthBound = (bloomR + 0.52 * len) * Math.sin((safeStep * DEG_TO_RAD) / 2) * 0.88;
-    const minW = gen === 1 ? 30 : gen === 2 ? 24 : 14;
+    // Keep adjacent petals on the same bloom lush yet non-overlapping at their
+    // widest obovate belly (r ≈ 0.63 * len) using actual neighbor angle step.
+    const safeStep = Math.max(18, Math.min(96, angularStepDeg));
+    const widthBound = (0.63 * len) * Math.sin((safeStep * DEG_TO_RAD) / 2) * 0.94;
+    const minW = gen === 1 ? 30 : gen === 2 ? 26 : 15;
     const halfW = r2(Math.max(minW, Math.min(rawW * sibFactor, Math.max(minW, widthBound))));
     return { len, halfW };
   }
@@ -380,11 +393,10 @@ function buildGarden(centerId, family, expanded, opts = {}) {
       w.isSibling,
       neighborStepDeg,
       166,
-      GARDEN_HUB.r,
     );
 
     const slotCode = slotCodeFromKey(w.key, direction);
-    const labelPt = upPolar(GARDEN_HUB.x, GARDEN_HUB.y, len * 0.56, angleDeg);
+    const labelPt = upPolar(GARDEN_HUB.x, GARDEN_HUB.y, opticalLabelRadius(len, GARDEN_HUB.r), angleDeg);
     const tipPt = upPolar(GARDEN_HUB.x, GARDEN_HUB.y, len, angleDeg);
     const hasChildBloom = (childrenByParentKey.get(w.key) || []).length > 0;
 
@@ -396,6 +408,7 @@ function buildGarden(centerId, family, expanded, opts = {}) {
       side: w.lineageSide,
       cx: GARDEN_HUB.x,
       cy: GARDEN_HUB.y,
+      baseR: GARDEN_HUB.r,
       angleDeg,
       len,
       halfW,
@@ -459,7 +472,8 @@ function buildGarden(centerId, family, expanded, opts = {}) {
     }
 
     const R = ringRadii[gen] || ringRadii[ringRadii.length - 1];
-    const maxPetalAllowance = Math.max(24, 434 - R);
+    const nextRingR = gen < MAX_GEN ? ringRadii[gen + 1] || null : null;
+    const maxPetalAllowance = Math.max(24, 442 - R);
 
     for (const [parentKey, groupWedges] of groups.entries()) {
       const parentPetal = petalByKey.get(parentKey);
@@ -504,16 +518,22 @@ function buildGarden(centerId, family, expanded, opts = {}) {
         leaf,
       });
 
-      // Place petals around the bloom's seed-head, fanning outward along bloomAngleDeg
-      // while ensuring every petal's tip stays inside its own wedge sub-sector!
+      // Place petals around the bloom's seed-head, fanning outward along bloomAngleDeg.
+      // Derive local fan spread from the physical arc width of the parent's sector so
+      // Gen 2 & Gen 3 petals open luxuriously without squeezing narrow or colliding.
       const n = groupWedges.length;
-      const maxLocalSpread = Math.min(48, Math.max(22, pSec.span * 0.72));
+      const estLen = Math.min((BASE_PETAL_LEN[Math.min(gen, MAX_GEN)] || 48) * depthScale, maxPetalAllowance);
+      const sectorHalfArc = (R + 0.55 * estLen) * Math.sin((pSec.span * DEG_TO_RAD) / 2);
+      const sinMaxSpread = Math.min(1, (0.64 * sectorHalfArc) / Math.max(estLen, 1));
+      const arcSpreadDeg = Math.asin(sinMaxSpread) * RAD_TO_DEG;
+      const maxLocalSpread = Math.min(48, Math.max(22, arcSpreadDeg));
       const neighborStepDeg = n <= 1 ? 90 : (2 * maxLocalSpread) / (n - 1);
 
       for (let i = 0; i < n; i++) {
         const w = groupWedges[i];
         const sec = wedgeSectorDeg(w);
         const slotCode = slotCodeFromKey(w.key, direction);
+        const hasChildBloom = (childrenByParentKey.get(w.key) || []).length > 0;
 
         // Local fan angle centered on bloomAngleDeg:
         // Spread children symmetrically, capped so tips stay inside their sub-sector.
@@ -529,30 +549,41 @@ function buildGarden(centerId, family, expanded, opts = {}) {
         const jitter = seededJitterDeg(w.person.id, Math.min(2.0, sec.span * 0.08));
         let angleDeg = r2(bloomAngleDeg + localOffset + jitter);
 
-        const { len, halfW } = computePetalSize(
+        let { len, halfW } = computePetalSize(
           gen,
           w.isSibling,
           neighborStepDeg,
           maxPetalAllowance,
-          bloomR,
         );
 
         // Verify the petal's tip stays inside its sub-sector [sec.a0, sec.a1] so any
         // deeper stem sprouted from this tip can NEVER cross a sibling or cousin stem.
         let tipPt = upPolar(bloom.x, bloom.y, len, angleDeg);
-        const tipPol = toHubPolar(tipPt.x, tipPt.y);
+        let tipPol = toHubPolar(tipPt.x, tipPt.y);
         const secMargin = Math.min(1.2, sec.span * 0.1);
         const minSec = sec.a0 + secMargin;
         const maxSec = sec.a1 - secMargin;
         if (tipPol.angleDeg < minSec || tipPol.angleDeg > maxSec) {
           // Aim directly toward a point at radius (R + len * 0.85) on the sub-sector midpoint.
-          const targetPt = upPolar(GARDEN_HUB.x, GARDEN_HUB.y, Math.min(434, R + len * 0.85), sec.mid);
+          const targetPt = upPolar(GARDEN_HUB.x, GARDEN_HUB.y, Math.min(442, R + len * 0.85), sec.mid);
           angleDeg = r2(Math.atan2(targetPt.x - bloom.x, bloom.y - targetPt.y) * RAD_TO_DEG);
           tipPt = upPolar(bloom.x, bloom.y, len, angleDeg);
+          tipPol = toHubPolar(tipPt.x, tipPt.y);
         }
 
-        const labelPt = upPolar(bloom.x, bloom.y, len * 0.56, angleDeg);
-        const hasChildBloom = (childrenByParentKey.get(w.key) || []).length > 0;
+        // Keep sprouted petal tips safely inside the next generation's ring so stems
+        // always grow gracefully outward to their child bloom.
+        if (hasChildBloom && nextRingR && tipPol.r > nextRingR - 14) {
+          const trimRatio = Math.max(0.55, (nextRingR - 14 - R) / Math.max(1, tipPol.r - R));
+          const trimmedLen = r2(Math.max(30, len * trimRatio));
+          if (trimmedLen < len) {
+            len = trimmedLen;
+            halfW = r2(Math.min(halfW, Math.max(15, (0.63 * len) * Math.sin((Math.max(18, Math.min(96, neighborStepDeg)) * DEG_TO_RAD) / 2) * 0.94)));
+            tipPt = upPolar(bloom.x, bloom.y, len, angleDeg);
+          }
+        }
+
+        const labelPt = upPolar(bloom.x, bloom.y, opticalLabelRadius(len, bloomR), angleDeg);
 
         const petal = {
           key: w.key,
@@ -562,6 +593,7 @@ function buildGarden(centerId, family, expanded, opts = {}) {
           side: w.lineageSide,
           cx: bloom.x,
           cy: bloom.y,
+          baseR: bloomR,
           angleDeg,
           len,
           halfW,
@@ -647,17 +679,19 @@ function buildGarden(centerId, family, expanded, opts = {}) {
     const rightSide = i % 2 === 0;
     const row = Math.floor(i / 2);
     const cx = GARDEN_HUB.x;
-    const cy = r2(552 + row * 14);
-    const angleDeg = r2((rightSide ? 1 : -1) * (102 + row * 10));
-    const len = r2(Math.max(66, 86 - row * 6));
-    const halfW = r2(Math.max(20, 26 - row * 2));
-    const labelPt = upPolar(cx, cy, len * 0.56, angleDeg);
+    const cy = r2(552 + row * 11);
+    const angleDeg = r2((rightSide ? 1 : -1) * (98 + row * 2.5));
+    const len = r2(Math.max(88, 108 - row * 8));
+    const halfW = r2(Math.max(26, 36 - row * 4));
+    const baseR = 5;
+    const labelPt = upPolar(cx, cy, opticalLabelRadius(len, baseR), angleDeg);
     return {
       key: `spouse:${spouse.id}`,
       personId: spouse.id,
       person: spouse,
       cx,
       cy,
+      baseR,
       angleDeg,
       len,
       halfW,

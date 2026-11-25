@@ -58,6 +58,13 @@ function assertGeometricInvariants(garden, label) {
     assert.ok(p.tipY >= GARDEN_BOUNDS.minY && p.tipY <= GARDEN_BOUNDS.maxY, `${label}: petal ${p.key} tipY in bounds`);
     assert.ok(p.pathD.startsWith('M 0,0 C '), `${label}: petal ${p.key} local cubic Bezier path`);
     assert.ok(p.veinD.startsWith('M 0,'), `${label}: petal ${p.key} local vein path`);
+    assert.ok(Number.isFinite(p.baseR) && p.baseR > 0, `${label}: petal ${p.key} baseR positive`);
+    const labelDist = Math.hypot(p.labelX - p.cx, p.labelY - p.cy);
+    const minOptical = p.baseR + (p.len - p.baseR) * 0.42;
+    assert.ok(
+      labelDist >= minOptical && labelDist <= p.len * 0.74,
+      `${label}: petal ${p.key} labelDist=${labelDist.toFixed(2)} outside optical belly [${minOptical.toFixed(2)}, ${(p.len * 0.74).toFixed(2)}]`,
+    );
   }
 
   for (const bud of garden.buds) {
@@ -231,4 +238,77 @@ test('single-person tree renders golden hub + two unopened buds when canEdit is 
   });
   assert.equal(readOnly.buds.length, 0);
   assertGeometricInvariants(readOnly, 'single-person-readonly');
+});
+
+test('obovate magnolia petals expose baseR, rounded crown, optical label anchor, and generous Gen 2/3/Spouse proportions', () => {
+  const def = buildGarden(rootId, family, new Set(), { direction: 'ancestors', canEdit: true });
+  const gen1 = def.petals.filter((p) => p.generation === 1);
+  const gen2 = def.petals.filter((p) => p.generation === 2);
+
+  for (const p of gen1) {
+    assert.equal(p.baseR, GARDEN_HUB.r);
+    // 4-cubic symmetric obovate magnolia silhouette
+    assert.equal((p.pathD.match(/ C /g) || []).length, 4);
+    assert.ok(p.len >= 158 && p.halfW >= 54);
+  }
+  for (const p of gen2) {
+    const parentBloom = def.blooms.find((b) => b.x === p.cx && b.y === p.cy);
+    assert.ok(parentBloom);
+    assert.equal(p.baseR, parentBloom.r);
+    assert.ok(p.len >= 118 && p.len <= 128, `Gen 2 len=${p.len}`);
+    assert.ok(p.halfW >= 46 && p.halfW <= 52, `Gen 2 halfW=${p.halfW}`);
+  }
+  assert.ok(def.spouses[0].len >= 102 && def.spouses[0].len <= 112, `Spouse len=${def.spouses[0].len}`);
+  assert.ok(def.spouses[0].halfW >= 34 && def.spouses[0].halfW <= 38, `Spouse halfW=${def.spouses[0].halfW}`);
+  assert.ok(Number.isFinite(def.spouses[0].baseR) && def.spouses[0].baseR > 0);
+
+  // Expanded Gen 3 proportions (all four grandparents expanded)
+  const gen3Tree = buildGarden(rootId, family, new Set(['lucia', 'miguel', 'rosalind', 'samuel']), {
+    direction: 'ancestors',
+    canEdit: true,
+  });
+  const gen3 = gen3Tree.petals.filter((p) => p.generation === 3);
+  assert.ok(gen3.length >= 4);
+  for (const p of gen3) {
+    assert.ok(p.len >= 76 && p.len <= 86, `Gen 3 len=${p.len}`);
+    assert.ok(p.halfW >= 30 && p.halfW <= 34, `Gen 3 halfW=${p.halfW}`);
+  }
+  assertGeometricInvariants(gen3Tree, 'expanded-gen3-all-grandparents');
+});
+
+test('multi-spouse (6 spouses) and full 6-generation binary tree respect GARDEN_BOUNDS with zero collisions', () => {
+  const multiSpouse = {
+    root: { id: 'root', name: 'Center Person', birth: '1980', spouseIds: ['s1', 's2', 's3', 's4', 's5', 's6'] },
+    s1: { id: 's1', name: 'Spouse One', spouseIds: ['root'] },
+    s2: { id: 's2', name: 'Spouse Two', spouseIds: ['root'] },
+    s3: { id: 's3', name: 'Spouse Three', spouseIds: ['root'] },
+    s4: { id: 's4', name: 'Spouse Four', spouseIds: ['root'] },
+    s5: { id: 's5', name: 'Spouse Five', spouseIds: ['root'] },
+    s6: { id: 's6', name: 'Spouse Six', spouseIds: ['root'] },
+  };
+  const gSp = buildGarden('root', multiSpouse, new Set(), { canEdit: true });
+  assert.equal(gSp.spouses.length, 6);
+  assertGeometricInvariants(gSp, 'six-spouses');
+
+  const deep = { p0: { id: 'p0', name: 'Root Person' } };
+  const queue = [['p0', 0]];
+  let counter = 1;
+  const allIds = new Set(['p0']);
+  while (queue.length) {
+    const [id, gen] = queue.shift();
+    if (gen >= 6) continue;
+    const mId = `p${counter++}`;
+    const fId = `p${counter++}`;
+    deep[id].motherId = mId;
+    deep[id].fatherId = fId;
+    deep[mId] = { id: mId, name: `Mother ${mId}` };
+    deep[fId] = { id: fId, name: `Father ${fId}` };
+    allIds.add(mId);
+    allIds.add(fId);
+    queue.push([mId, gen + 1], [fId, gen + 1]);
+  }
+  const g6 = buildGarden('p0', deep, allIds, { canEdit: true });
+  assert.equal(g6.maxGen, 6);
+  assert.equal(g6.petals.length, 126);
+  assertGeometricInvariants(g6, 'full-6-gen-binary');
 });
